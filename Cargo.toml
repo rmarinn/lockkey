@@ -8,3 +8,4 @@ aes-gcm = "0.10.3"
 anyhow = "1.0.86"
 argon2 = "0.5.3"
 rand = "0.8.5"
+rusqlite = { version = "0.32.1", features = ["bundled"] }

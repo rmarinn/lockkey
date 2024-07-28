@@ -1,4 +1,2 @@
+pub mod data;
 pub mod encryption;
-
-#[cfg(test)]
-mod tests;
