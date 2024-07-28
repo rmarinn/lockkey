@@ -8,12 +8,14 @@ pub struct DbConn {
 
 impl DbConn {
     pub fn new(db_path: &str) -> Result<DbConn> {
-        Ok(DbConn {
+        let conn = DbConn {
             conn: Connection::open(db_path)?,
-        })
+        };
+        conn.create_table()?;
+        Ok(conn)
     }
 
-    pub fn create_table(&self) -> Result<()> {
+    fn create_table(&self) -> Result<()> {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS secrets (
                 id      INTEGER PRIMARY KEY,
@@ -81,7 +83,7 @@ mod tests {
     fn get_test_db_path() -> PathBuf {
         let test_id = TEST_ID.fetch_add(1, Ordering::SeqCst);
         let mut path = std::env::temp_dir();
-        path.push(format!("test_db_{test_id:?}.sqlite"));
+        path.push(format!("data_test_db_{test_id:?}.sqlite"));
         path
     }
 
@@ -109,23 +111,10 @@ mod tests {
     }
 
     #[test]
-    fn can_create_table() {
-        let db_path = get_test_db_path();
-
-        let conn = DbConn::new(db_path.to_str().unwrap()).unwrap();
-        conn.create_table().unwrap();
-        conn.close().unwrap();
-
-        remove_db_with_retry(&db_path);
-    }
-
-    #[test]
     fn can_insert_and_retrieve_data_from_table() {
         let db_path = get_test_db_path();
 
         let conn = DbConn::new(db_path.to_str().unwrap()).unwrap();
-
-        conn.create_table().unwrap();
 
         let label1 = "pass1".to_string();
         let pass1: Vec<u8> = "pass2".into();
