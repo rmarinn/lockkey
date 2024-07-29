@@ -6,21 +6,38 @@ use anyhow::Result;
 use crate::data::DbConn;
 use crate::encryption::*;
 
-pub fn insert_into_db(conn: &DbConn, key: &[u8; 32], label: &str, secret: &String) -> Result<()> {
-    let ciphertext = encrypt(&key, secret.as_bytes())?;
-    conn.insert_into_table(label, &ciphertext)?;
-    Ok(())
+pub struct Session {
+    key: [u8; 32],
+    db_conn: DbConn,
 }
 
-pub fn retrieve_from_db(conn: &DbConn, key: &[u8; 32], label: &str) -> Result<Option<String>> {
-    let data = match conn.retrieve_data(label)? {
-        Some(cipertext) => cipertext,
-        _ => return Ok(None),
-    };
+impl Session {
+    pub fn new(passwd: &String, db_path: &str) -> Result<Session> {
+        let key = derive_key(passwd.as_bytes())?;
+        let db_conn = DbConn::new(db_path).expect("should create db connection");
+        Ok(Session { key, db_conn })
+    }
 
-    let decrypted_text = decrypt(&key, &data)?;
-    let decoded_string = String::from_utf8(decrypted_text.to_vec())?;
-    Ok(Some(decoded_string))
+    pub fn insert_into_db(&self, label: &str, secret: &String) -> Result<()> {
+        let encrypted = encrypt(&self.key, &secret.as_bytes())?;
+        self.db_conn.insert_into_table(label, &encrypted)?;
+        Ok(())
+    }
+
+    pub fn retrieve_from_db(&self, label: &str) -> Result<Option<String>> {
+        let data = match self.db_conn.retrieve_data(label)? {
+            Some(d) => d,
+            _ => return Ok(None),
+        };
+
+        let secret_bytes = decrypt(&self.key, &data)?;
+        let secret = String::from_utf8(secret_bytes)?;
+        Ok(Some(secret))
+    }
+
+    pub fn close(self) -> Result<()> {
+        self.db_conn.close()
+    }
 }
 
 #[cfg(test)]
@@ -59,24 +76,26 @@ mod test {
     #[test]
     fn can_store_and_retrieve_secret() {
         let db_path = get_test_db_path();
-        let db_conn =
-            DbConn::new(Some(db_path.to_str().unwrap())).expect("should create db connection");
 
-        let master_pass = b"a$$word";
-        let label = "my pass";
-        let secret = "my secret".to_string();
+        let master_pass = "a$$word".to_string();
+        let label = "mypass";
+        let secret = "mysecret".to_string();
 
-        let key = derive_key(master_pass).expect("should derive");
+        let sess =
+            Session::new(&master_pass, db_path.to_str().unwrap()).expect("should create session");
 
-        insert_into_db(&db_conn, &key, &label, &secret).expect("should insert secret into db");
-        let retrieved_secret = retrieve_from_db(&db_conn, &key, &label)
+        sess.insert_into_db(&label, &secret)
+            .expect("should insert secret into db");
+
+        let retrieved_secret = sess
+            .retrieve_from_db(&label)
             .expect("should retrieve secret from db")
             .unwrap();
 
         assert_eq!(secret, retrieved_secret);
 
         // cleanup
-        db_conn.close().unwrap();
+        sess.close().expect("should close session");
         remove_db_with_retry(&db_path);
     }
 }
