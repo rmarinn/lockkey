@@ -1,15 +1,27 @@
+use std::path::PathBuf;
+
 use anyhow::Result;
 
 use rusqlite::{Connection, OptionalExtension};
+
+const DEFAULT_DB_PATH: &str = "secrets.sqlite";
 
 pub struct DbConn {
     conn: Connection,
 }
 
 impl DbConn {
-    pub fn new(db_path: &str) -> Result<DbConn> {
+    pub fn new(path: Option<&str>) -> Result<DbConn> {
+        let path = match path {
+            Some(p) => PathBuf::from(p),
+            None => {
+                let mut default_path = std::env::current_dir().unwrap();
+                default_path.push(DEFAULT_DB_PATH);
+                default_path
+            }
+        };
         let conn = DbConn {
-            conn: Connection::open(db_path)?,
+            conn: Connection::open(path)?,
         };
         conn.create_table()?;
         Ok(conn)
@@ -104,7 +116,7 @@ mod tests {
     fn can_create_db_connection() {
         let db_path = get_test_db_path();
 
-        let conn = DbConn::new(db_path.to_str().unwrap()).unwrap();
+        let conn = DbConn::new(Some(db_path.to_str().unwrap())).unwrap();
         conn.close().unwrap();
 
         remove_db_with_retry(&db_path);
@@ -114,7 +126,7 @@ mod tests {
     fn can_insert_and_retrieve_data_from_table() {
         let db_path = get_test_db_path();
 
-        let conn = DbConn::new(db_path.to_str().unwrap()).unwrap();
+        let conn = DbConn::new(Some(db_path.to_str().unwrap())).unwrap();
 
         let label1 = "pass1".to_string();
         let pass1: Vec<u8> = "pass2".into();
@@ -146,5 +158,24 @@ mod tests {
 
         conn.close().unwrap();
         remove_db_with_retry(&db_path);
+    }
+
+    #[test]
+    fn uses_default_db_path() {
+        let default_path = {
+            let conn = DbConn::new(None).expect("should create a database connection");
+            conn.create_table().expect("should create table");
+            conn.close().expect("should close the connection");
+
+            let mut path = std::env::current_dir().unwrap();
+            path.push(DEFAULT_DB_PATH);
+            path
+        };
+
+        // Check that the default database file exists
+        assert!(default_path.exists());
+
+        // Clean up
+        fs::remove_file(default_path).expect("should delete the default database file");
     }
 }

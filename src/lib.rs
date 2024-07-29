@@ -59,7 +59,8 @@ mod test {
     #[test]
     fn can_store_and_retrieve_secret() {
         let db_path = get_test_db_path();
-        let db_conn = DbConn::new(db_path.to_str().unwrap()).expect("should create db connection");
+        let db_conn =
+            DbConn::new(Some(db_path.to_str().unwrap())).expect("should create db connection");
 
         let master_pass = b"a$$word";
         let label = "my pass";
