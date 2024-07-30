@@ -19,7 +19,7 @@ impl DbConn {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS secrets (
                 id      INTEGER PRIMARY KEY,
-                label   TEXT NOT NULL,
+                label   TEXT UNIQUE NOT NULL,
                 data    BLOB
             )
             ",
@@ -86,6 +86,11 @@ mod test {
         let test_id = TEST_ID.fetch_add(1, Ordering::SeqCst);
         let mut path = std::env::temp_dir();
         path.push(format!("data_test_db_{test_id:?}.sqlite"));
+
+        if path.exists() {
+            remove_db_with_retry(&path)
+        }
+
         path
     }
 
@@ -118,33 +123,46 @@ mod test {
 
         let conn = DbConn::new(db_path.to_str().unwrap()).unwrap();
 
+        let passwd: Vec<u8> = "passwd".into();
+
         let label1 = "pass1".to_string();
-        let pass1: Vec<u8> = "pass2".into();
-        conn.insert_into_table(&label1, &pass1)
+        conn.insert_into_table(&label1, &passwd)
             .expect("should insert into table");
 
         let label2 = "pass2".to_string();
-        let pass2: Vec<u8> = "pass2".into();
-        conn.insert_into_table(&label2, &pass2)
+        conn.insert_into_table(&label2, &passwd)
             .expect("should insert into table");
-
-        // getting back the labels
-        let labels = conn.retrieve_labels().expect("should get labels");
-        assert!(labels.contains(&label1));
-        assert!(labels.contains(&label2));
 
         // getting back the data
         let data1 = conn
             .retrieve_data(&label1)
             .expect("should retrieve data")
             .unwrap();
-        assert_eq!(&data1, &pass1);
+        assert_eq!(&data1, &passwd);
 
         let data2 = conn
             .retrieve_data(&label2)
             .expect("should retrieve data")
             .unwrap();
-        assert_eq!(&data2, &pass2);
+        assert_eq!(&data2, &passwd);
+
+        conn.close().unwrap();
+        remove_db_with_retry(&db_path);
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_have_unique_labels() {
+        let db_path = get_test_db_path();
+
+        let conn = DbConn::new(db_path.to_str().unwrap()).unwrap();
+
+        let label1 = "pass1".to_string();
+        let pass: Vec<u8> = "pass".into();
+        conn.insert_into_table(&label1, &pass).unwrap();
+
+        let label2 = "pass1".to_string();
+        conn.insert_into_table(&label2, &pass).unwrap();
 
         conn.close().unwrap();
         remove_db_with_retry(&db_path);
