@@ -35,6 +35,10 @@ impl Session {
         Ok(Some(secret))
     }
 
+    pub fn retrieve_labels(&self) -> Result<Vec<String>> {
+        Ok(self.db_conn.retrieve_labels()?)
+    }
+
     pub fn close(self) -> Result<()> {
         self.db_conn.close()
     }
@@ -93,6 +97,37 @@ mod test {
             .unwrap();
 
         assert_eq!(secret, retrieved_secret);
+
+        // cleanup
+        sess.close().expect("should close session");
+        remove_db_with_retry(&db_path);
+    }
+
+    #[test]
+    fn can_retrieve_labels() {
+        let db_path = get_test_db_path();
+
+        let master_pass = "a$$word".to_string();
+        let label1 = "mypass";
+        let label2 = "mypass2";
+        let label3 = "mypass3";
+        let secret = "mysecret".to_string();
+
+        let sess =
+            Session::new(&master_pass, db_path.to_str().unwrap()).expect("should create session");
+
+        sess.insert_into_db(&label1, &secret)
+            .expect("should insert secret into db");
+        sess.insert_into_db(&label2, &secret)
+            .expect("should insert secret into db");
+        sess.insert_into_db(&label3, &secret)
+            .expect("should insert secret into db");
+
+        let labels = sess.retrieve_labels().expect("should retrieve labels");
+
+        assert!(labels.contains(&label1.to_string()));
+        assert!(labels.contains(&label2.to_string()));
+        assert!(labels.contains(&label3.to_string()));
 
         // cleanup
         sess.close().expect("should close session");
