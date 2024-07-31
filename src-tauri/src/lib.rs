@@ -11,14 +11,9 @@ pub struct Session {
     db_conn: Option<DbConn>,
 }
 
-pub struct SessionBuilder {
-    key: Option<[u8; 32]>,
-    db_conn: Option<DbConn>,
-}
-
-impl SessionBuilder {
+impl Session {
     pub fn new() -> Self {
-        SessionBuilder {
+        Session {
             key: None,
             db_conn: None,
         }
@@ -34,15 +29,6 @@ impl SessionBuilder {
         self
     }
 
-    pub fn build(self) -> Session {
-        Session {
-            key: self.key,
-            db_conn: self.db_conn,
-        }
-    }
-}
-
-impl Session {
     pub fn insert_into_db(&self, label: &str, secret: &String) -> Result<()> {
         let key = self
             .key
@@ -151,10 +137,7 @@ mod test {
         let label = "mypass";
         let secret = "mysecret".to_string();
 
-        let sess = SessionBuilder::new()
-            .set_key(&master_pass)
-            .connect_to_db(db_path)
-            .build();
+        let sess = Session::new().set_key(&master_pass).connect_to_db(db_path);
 
         sess.insert_into_db(&label, &secret)
             .expect("should insert secret into db");
@@ -181,10 +164,7 @@ mod test {
         let label3 = "mypass3";
         let secret = "mysecret".to_string();
 
-        let sess = SessionBuilder::new()
-            .set_key(&master_pass)
-            .connect_to_db(db_path)
-            .build();
+        let sess = Session::new().set_key(&master_pass).connect_to_db(db_path);
 
         sess.insert_into_db(&label1, &secret)
             .expect("should insert secret into db");
@@ -212,7 +192,7 @@ mod test {
         let label1 = "mypass";
         let secret = "mysecret".to_string();
 
-        let sess = SessionBuilder::new().connect_to_db(db_path).build();
+        let sess = Session::new().connect_to_db(db_path);
 
         sess.insert_into_db(&label1, &secret)
             .expect("should insert secret into db");
@@ -228,7 +208,7 @@ mod test {
         let label1 = "mypass";
         let secret = "mysecret".to_string();
 
-        let sess = SessionBuilder::new().set_key(&master_pass).build();
+        let sess = Session::new().set_key(&master_pass);
 
         sess.insert_into_db(&label1, &secret)
             .expect("should insert secret into db");
