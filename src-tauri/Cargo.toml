@@ -1,0 +1,25 @@
+[package]
+name = "lockkey"
+version = "0.0.0"
+description = "A Tauri App"
+authors = ["Richard Marin"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "1", features = [] }
+
+[dependencies]
+tauri = { version = "1", features = ["shell-open"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+aes-gcm = "0.10.3"
+anyhow = "1.0.86"
+argon2 = "0.5.3"
+rand = "0.8.5"
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+
+[features]
+# This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
