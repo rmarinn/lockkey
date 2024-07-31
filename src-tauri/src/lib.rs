@@ -46,7 +46,7 @@ impl Session {
     pub fn insert_into_db(&self, label: &str, secret: &String) -> Result<()> {
         let key = self
             .key
-            .expect("cannot insert into db without setting a key first");
+            .ok_or(anyhow!("cannot insert into db without setting a key first"))?;
 
         let db = self
             .db_conn
@@ -59,14 +59,13 @@ impl Session {
     }
 
     pub fn retrieve_from_db(&self, label: &str) -> Result<Option<String>> {
-        let key = self
-            .key
-            .expect("cannot insert into db without setting a key first");
+        let key = self.key.ok_or(anyhow!(
+            "cannot retrieve data from db without setting a key first"
+        ))?;
 
-        let db = self
-            .db_conn
-            .as_ref()
-            .ok_or(anyhow!("cannot insert before connecting to db"))?;
+        let db = self.db_conn.as_ref().ok_or(anyhow!(
+            "cannot retrieve data from db before connecting to db"
+        ))?;
 
         let data = match db.retrieve_data(label)? {
             Some(d) => d,
@@ -82,7 +81,7 @@ impl Session {
         let db = self
             .db_conn
             .as_ref()
-            .ok_or(anyhow!("cannot insert before connecting to db"))?;
+            .ok_or(anyhow!("retrieve labels before connecting to db"))?;
 
         Ok(db.retrieve_labels()?)
     }
@@ -110,31 +109,43 @@ mod test {
         time::Duration,
     };
 
-    static TEST_ID: AtomicUsize = AtomicUsize::new(0);
-
-    fn get_test_db_path() -> PathBuf {
-        let test_id = TEST_ID.fetch_add(1, Ordering::SeqCst);
-        let mut path = std::env::temp_dir();
-        path.push(format!("lib_test_db_{test_id:?}.sqlite"));
-        path
+    struct TestDb {
+        path: PathBuf,
     }
 
-    fn remove_db_with_retry(path: &PathBuf) {
-        let mut attempts = 0;
-        while attempts < 5 {
-            if fs::remove_file(path).is_ok() {
-                return;
-            }
-
-            attempts += 1;
-            thread::sleep(Duration::from_millis(100));
+    impl TestDb {
+        fn new() -> Self {
+            static TEST_ID: AtomicUsize = AtomicUsize::new(0);
+            let test_id = TEST_ID.fetch_add(1, Ordering::SeqCst);
+            let mut path = std::env::temp_dir();
+            path.push(format!("lockkey_lib_test_db_{test_id:?}.sqlite"));
+            TestDb { path }
         }
-        fs::remove_file(path).expect("should delete the test database file");
+
+        fn get_path(&self) -> &str {
+            &self.path.to_str().unwrap()
+        }
+    }
+
+    impl Drop for TestDb {
+        fn drop(&mut self) {
+            let mut attempts = 0;
+            while attempts < 5 {
+                if fs::remove_file(&self.path).is_ok() {
+                    return;
+                }
+
+                attempts += 1;
+                thread::sleep(Duration::from_millis(100));
+            }
+            fs::remove_file(&self.path).expect("should delete the tst database file");
+        }
     }
 
     #[test]
     fn can_store_and_retrieve_secret() {
-        let db_path = get_test_db_path();
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
 
         let master_pass = "a$$word".to_string();
         let label = "mypass";
@@ -142,7 +153,7 @@ mod test {
 
         let sess = SessionBuilder::new()
             .set_key(&master_pass)
-            .connect_to_db(db_path.to_str().unwrap())
+            .connect_to_db(db_path)
             .build();
 
         sess.insert_into_db(&label, &secret)
@@ -157,12 +168,12 @@ mod test {
 
         // cleanup
         sess.close().expect("should close session");
-        remove_db_with_retry(&db_path);
     }
 
     #[test]
     fn can_retrieve_labels() {
-        let db_path = get_test_db_path();
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
 
         let master_pass = "a$$word".to_string();
         let label1 = "mypass";
@@ -172,7 +183,7 @@ mod test {
 
         let sess = SessionBuilder::new()
             .set_key(&master_pass)
-            .connect_to_db(db_path.to_str().unwrap())
+            .connect_to_db(db_path)
             .build();
 
         sess.insert_into_db(&label1, &secret)
@@ -190,34 +201,29 @@ mod test {
 
         // cleanup
         sess.close().expect("should close session");
-        remove_db_with_retry(&db_path);
     }
 
     #[test]
     #[should_panic]
     fn cannot_access_db_without_key() {
-        let db_path = get_test_db_path();
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
 
         let label1 = "mypass";
         let secret = "mysecret".to_string();
 
-        let sess = SessionBuilder::new()
-            .connect_to_db(db_path.to_str().unwrap())
-            .build();
+        let sess = SessionBuilder::new().connect_to_db(db_path).build();
 
         sess.insert_into_db(&label1, &secret)
             .expect("should insert secret into db");
 
         // cleanup
         sess.close().expect("should close session");
-        remove_db_with_retry(&db_path);
     }
 
     #[test]
     #[should_panic]
     fn cannot_access_db_without_conn() {
-        let db_path = get_test_db_path();
-
         let master_pass = "a$$word".to_string();
         let label1 = "mypass";
         let secret = "mysecret".to_string();
@@ -229,6 +235,5 @@ mod test {
 
         // cleanup
         sess.close().expect("should close session");
-        remove_db_with_retry(&db_path);
     }
 }

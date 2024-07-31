@@ -80,48 +80,54 @@ mod test {
         time::Duration,
     };
 
-    static TEST_ID: AtomicUsize = AtomicUsize::new(0);
-
-    fn get_test_db_path() -> PathBuf {
-        let test_id = TEST_ID.fetch_add(1, Ordering::SeqCst);
-        let mut path = std::env::temp_dir();
-        path.push(format!("data_test_db_{test_id:?}.sqlite"));
-
-        if path.exists() {
-            remove_db_with_retry(&path)
-        }
-
-        path
+    struct TestDb {
+        path: PathBuf,
     }
 
-    fn remove_db_with_retry(path: &PathBuf) {
-        let mut attempts = 0;
-        while attempts < 5 {
-            if fs::remove_file(path).is_ok() {
-                return;
-            }
-
-            attempts += 1;
-            thread::sleep(Duration::from_millis(100));
+    impl TestDb {
+        fn new() -> Self {
+            static TEST_ID: AtomicUsize = AtomicUsize::new(0);
+            let test_id = TEST_ID.fetch_add(1, Ordering::SeqCst);
+            let mut path = std::env::temp_dir();
+            path.push(format!("lockkey_data_test_db_{test_id:?}.sqlite"));
+            TestDb { path }
         }
-        fs::remove_file(path).expect("should delete the test database file");
+
+        fn get_path(&self) -> &str {
+            &self.path.to_str().unwrap()
+        }
+    }
+
+    impl Drop for TestDb {
+        fn drop(&mut self) {
+            let mut attempts = 0;
+            while attempts < 5 {
+                if fs::remove_file(&self.path).is_ok() {
+                    return;
+                }
+
+                attempts += 1;
+                thread::sleep(Duration::from_millis(100));
+            }
+            fs::remove_file(&self.path).expect("should delete the test database file");
+        }
     }
 
     #[test]
     fn can_create_db_connection() {
-        let db_path = get_test_db_path();
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
 
-        let conn = DbConn::new(db_path.to_str().unwrap()).unwrap();
+        let conn = DbConn::new(db_path).unwrap();
         conn.close().unwrap();
-
-        remove_db_with_retry(&db_path);
     }
 
     #[test]
     fn can_insert_and_retrieve_data_from_table() {
-        let db_path = get_test_db_path();
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
 
-        let conn = DbConn::new(db_path.to_str().unwrap()).unwrap();
+        let conn = DbConn::new(db_path).unwrap();
 
         let passwd: Vec<u8> = "passwd".into();
 
@@ -147,15 +153,15 @@ mod test {
         assert_eq!(&data2, &passwd);
 
         conn.close().unwrap();
-        remove_db_with_retry(&db_path);
     }
 
     #[test]
     #[should_panic]
     fn should_have_unique_labels() {
-        let db_path = get_test_db_path();
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
 
-        let conn = DbConn::new(db_path.to_str().unwrap()).unwrap();
+        let conn = DbConn::new(db_path).unwrap();
 
         let label1 = "pass1".to_string();
         let pass: Vec<u8> = "pass".into();
@@ -165,6 +171,5 @@ mod test {
         conn.insert_into_table(&label2, &pass).unwrap();
 
         conn.close().unwrap();
-        remove_db_with_retry(&db_path);
     }
 }
