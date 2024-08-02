@@ -67,7 +67,7 @@ impl Session {
         let db = self
             .db_conn
             .as_ref()
-            .ok_or(anyhow!("retrieve labels before connecting to db"))?;
+            .ok_or(anyhow!("cannot retrieve labels before connecting to db"))?;
 
         Ok(db.retrieve_labels()?)
     }
