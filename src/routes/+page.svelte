@@ -1,10 +1,9 @@
-<script>
+<script lang="ts">
   import { goto } from "$app/navigation";
   // import { invoke } from "@tauri-apps/api/tauri";
   import { onMount } from "svelte";
 
-  /** @type {string[]} **/
-  let labels = [];
+  let labels: string[] = [];
 
   // call the rust function to fetch the labels
   // async function getLabels() {

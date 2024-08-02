@@ -1,12 +1,12 @@
-<script>
+<script lang="ts">
   import { goto } from "$app/navigation";
 
-  const inputTypes = ["password", "text"];
-  let selectedType = "password";
-  let submitted = false;
+  const inputTypes: string[] = ["password", "text"];
+  let selectedType: string = "password";
+  let submitted: boolean = false;
 
-  let label = "";
-  let secret = "";
+  let label: string = "";
+  let secret: string = "";
 
   // clear secret when selectedType changes
   $: {
