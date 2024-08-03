@@ -2,6 +2,7 @@ pub mod data;
 pub mod encryption;
 
 use anyhow::{anyhow, Result};
+use data::{Kind, RetrieveLabelsQueryResult};
 
 use crate::data::DbConn;
 use crate::encryption::*;
@@ -29,7 +30,7 @@ impl Session {
         self
     }
 
-    pub fn insert_into_db(&self, label: &str, secret: &String) -> Result<()> {
+    pub fn insert_into_db(&self, kind: &str, label: &str, data: &str) -> Result<()> {
         let key = self
             .key
             .ok_or(anyhow!("cannot insert into db without setting a key first"))?;
@@ -39,8 +40,8 @@ impl Session {
             .as_ref()
             .ok_or(anyhow!("cannot insert before connecting to db"))?;
 
-        let encrypted = encrypt(&key, &secret.as_bytes())?;
-        db.insert_into_table(label, &encrypted)?;
+        let encrypted = encrypt(&key, &data.as_bytes())?;
+        db.insert_into_table(Kind::from_str(kind)?, label, &encrypted)?;
         Ok(())
     }
 
@@ -63,7 +64,7 @@ impl Session {
         Ok(Some(secret))
     }
 
-    pub fn retrieve_labels(&self) -> Result<Vec<String>> {
+    pub fn retrieve_labels(&self) -> Result<Vec<RetrieveLabelsQueryResult>> {
         let db = self
             .db_conn
             .as_ref()
@@ -133,13 +134,13 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let master_pass = "a$$word".to_string();
-        let label = "mypass";
-        let secret = "mysecret".to_string();
+        let master_pass = String::from("a$$word");
+        let label = String::from("mypass");
+        let secret = String::from("mysecret");
 
         let sess = Session::new().set_key(&master_pass).connect_to_db(db_path);
 
-        sess.insert_into_db(&label, &secret)
+        sess.insert_into_db("password", &label, &secret)
             .expect("should insert secret into db");
 
         let retrieved_secret = sess
@@ -158,26 +159,27 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let master_pass = "a$$word".to_string();
-        let label1 = "mypass";
-        let label2 = "mypass2";
-        let label3 = "mypass3";
-        let secret = "mysecret".to_string();
+        let master_pass = String::from("a$$word");
+        let label1 = String::from("mypass");
+        let label2 = String::from("mypass2");
+        let label3 = String::from("mypass3");
+        let secret = String::from("mysecret");
 
         let sess = Session::new().set_key(&master_pass).connect_to_db(db_path);
 
-        sess.insert_into_db(&label1, &secret)
+        sess.insert_into_db("text", &label1, &secret)
             .expect("should insert secret into db");
-        sess.insert_into_db(&label2, &secret)
+        sess.insert_into_db("password", &label2, &secret)
             .expect("should insert secret into db");
-        sess.insert_into_db(&label3, &secret)
+        sess.insert_into_db("text", &label3, &secret)
             .expect("should insert secret into db");
 
-        let labels = sess.retrieve_labels().expect("should retrieve labels");
+        let labels = vec![label1, label2, label3];
+        let query = sess.retrieve_labels().expect("should retrieve labels");
 
-        assert!(labels.contains(&label1.to_string()));
-        assert!(labels.contains(&label2.to_string()));
-        assert!(labels.contains(&label3.to_string()));
+        for result in query {
+            assert!(labels.contains(&result.label));
+        }
 
         // cleanup
         sess.close().expect("should close session");
@@ -189,12 +191,12 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let label1 = "mypass";
-        let secret = "mysecret".to_string();
+        let label1 = String::from("mypass");
+        let secret = String::from("mysecret");
 
         let sess = Session::new().connect_to_db(db_path);
 
-        sess.insert_into_db(&label1, &secret)
+        sess.insert_into_db("password", &label1, &secret)
             .expect("should insert secret into db");
 
         // cleanup
@@ -204,13 +206,13 @@ mod test {
     #[test]
     #[should_panic]
     fn cannot_access_db_without_conn() {
-        let master_pass = "a$$word".to_string();
-        let label1 = "mypass";
-        let secret = "mysecret".to_string();
+        let master_pass = String::from("a$$word");
+        let label1 = String::from("mypass");
+        let secret = String::from("mysecret");
 
         let sess = Session::new().set_key(&master_pass);
 
-        sess.insert_into_db(&label1, &secret)
+        sess.insert_into_db("password", &label1, &secret)
             .expect("should insert secret into db");
 
         // cleanup

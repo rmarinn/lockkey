@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use rusqlite::{Connection, OptionalExtension};
 
@@ -6,45 +6,78 @@ pub struct DbConn {
     conn: Connection,
 }
 
+pub struct RetrieveLabelsQueryResult {
+    pub kind: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Kind {
+    Password,
+    Text,
+}
+
+impl Kind {
+    pub fn from_str(input: &str) -> Result<Kind> {
+        match input {
+            "password" => Ok(Kind::Password),
+            "text" => Ok(Kind::Text),
+            _ => Err(anyhow!("invalid kind: {:?}", input)),
+        }
+    }
+
+    pub fn to_str(self) -> String {
+        match self {
+            Kind::Password => String::from("password"),
+            Kind::Text => String::from("text"),
+        }
+    }
+}
+
 impl DbConn {
     pub fn new(path: &str) -> Result<DbConn> {
-        let conn = DbConn {
+        let mut conn = DbConn {
             conn: Connection::open(path)?,
         };
         conn.create_table()?;
         Ok(conn)
     }
 
-    fn create_table(&self) -> Result<()> {
-        self.conn.execute(
+    fn create_table(&mut self) -> Result<()> {
+        let transaction = self.conn.transaction()?;
+
+        transaction.execute(
             "CREATE TABLE IF NOT EXISTS secrets (
                 id      INTEGER PRIMARY KEY,
-                label   TEXT UNIQUE NOT NULL,
-                data    BLOB
+                kind    TEXT NOT NULL CHECK(kind IN ('text', 'password')),
+                label   TEXT UNIQUE NOT NULL CHECK(length(label) <= 32),
+                data    BLOB NOT NULL
             )
             ",
             (),
         )?;
+
+        transaction.commit()?;
         Ok(())
     }
 
-    pub fn insert_into_table(&self, label: &str, data: &Vec<u8>) -> Result<()> {
+    pub fn insert_into_table(&self, kind: Kind, label: &str, data: &Vec<u8>) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO secrets (label, data) VALUES (?1, ?2)",
-            (&label, &data),
+            "INSERT INTO secrets (kind, label, data) VALUES (?1, ?2, ?3)",
+            (kind.to_str(), label, data),
         )?;
         Ok(())
     }
 
-    pub fn retrieve_labels(&self) -> Result<Vec<String>> {
-        let mut stmt = self.conn.prepare("SELECT label FROM secrets")?;
+    pub fn retrieve_labels(&self) -> Result<Vec<RetrieveLabelsQueryResult>> {
+        let mut stmt = self.conn.prepare("SELECT kind, label FROM secrets")?;
 
-        let rows = stmt.query_map([], |row| row.get(0))?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
 
-        let mut labels = Vec::new();
-        for label in rows {
-            match label {
-                Ok(value) => labels.push(value),
+        let mut labels: Vec<RetrieveLabelsQueryResult> = Vec::new();
+        for row in rows {
+            match row {
+                Ok((kind, label)) => labels.push(RetrieveLabelsQueryResult { kind, label }),
                 _ => (),
             }
         }
@@ -73,6 +106,7 @@ impl DbConn {
 mod test {
     use super::*;
     use std::{
+        collections::HashMap,
         fs,
         path::PathBuf,
         sync::atomic::{AtomicUsize, Ordering},
@@ -130,13 +164,12 @@ mod test {
         let conn = DbConn::new(db_path).unwrap();
 
         let passwd: Vec<u8> = "passwd".into();
-
         let label1 = "pass1".to_string();
-        conn.insert_into_table(&label1, &passwd)
+        conn.insert_into_table(Kind::Password, &label1, &passwd)
             .expect("should insert into table");
 
         let label2 = "pass2".to_string();
-        conn.insert_into_table(&label2, &passwd)
+        conn.insert_into_table(Kind::Text, &label2, &passwd)
             .expect("should insert into table");
 
         // getting back the data
@@ -156,6 +189,40 @@ mod test {
     }
 
     #[test]
+    fn can_retrieve_labels() {
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
+
+        let conn = DbConn::new(db_path).unwrap();
+
+        let passwd: Vec<u8> = "passwd".into();
+        let label1 = "pass1".to_string();
+        let kind1 = Kind::Password;
+        conn.insert_into_table(kind1.clone(), &label1, &passwd)
+            .expect("should insert into table");
+
+        let label2 = "pass2".to_string();
+        let kind2 = Kind::Text;
+        conn.insert_into_table(kind2.clone(), &label2, &passwd)
+            .expect("should insert into table");
+
+        let query = conn.retrieve_labels().expect("should retrieve labels");
+
+        assert_eq!(query.len(), 2);
+
+        let mut inputs = HashMap::new();
+        inputs.insert(label1, kind1.to_str());
+        inputs.insert(label2, kind2.to_str());
+
+        for result in query {
+            assert!(inputs.contains_key(&result.label));
+            assert_eq!(inputs.get(&result.label), Some(&result.kind));
+        }
+
+        conn.close().unwrap();
+    }
+
+    #[test]
     #[should_panic]
     fn should_have_unique_labels() {
         let test_db = TestDb::new();
@@ -163,12 +230,10 @@ mod test {
 
         let conn = DbConn::new(db_path).unwrap();
 
-        let label1 = "pass1".to_string();
-        let pass: Vec<u8> = "pass".into();
-        conn.insert_into_table(&label1, &pass).unwrap();
-
-        let label2 = "pass1".to_string();
-        conn.insert_into_table(&label2, &pass).unwrap();
+        conn.insert_into_table(Kind::Password, &String::from("pass1"), &"pass1".into())
+            .unwrap();
+        conn.insert_into_table(Kind::Text, &String::from("pass1"), &"pass2".into())
+            .unwrap();
 
         conn.close().unwrap();
     }
