@@ -1,23 +1,28 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  // import { invoke } from "@tauri-apps/api/tauri";
+  import { invoke } from "@tauri-apps/api/tauri";
   import { onMount } from "svelte";
 
-  let labels: string[] = [];
+  interface Label {
+    label: string;
+    kind: string;
+  }
+
+  let labels: Label[] = [];
 
   // call the rust function to fetch the labels
-  // async function getLabels() {
-  //   labels = await invoke("get_labels");
-  // }
-
   async function getLabels() {
-    labels = ["password1", "anotha one", "and yet anotha one"];
-    // labels = [];
+    labels = await invoke<Label[]>("get_labels");
   }
 
   onMount(() => {
     getLabels();
   });
+
+  async function handleDelete(label: string) {
+    await invoke("delete_secret", { label: label });
+    await getLabels();
+  }
 </script>
 
 {#if labels.length === 0}
@@ -35,9 +40,10 @@
     <h1 class="mb-3">Secrets:</h1>
     {#each labels as label}
       <div class="row mb-1 justify-content-center align-items-center">
-        <p class="mr-3">{label}</p>
+        <p class="mr-3">{label.label} ({label.kind})</p>
         <button class="mr-1">Copy</button>
-        <button>View</button>
+        <button class="mr-1">View</button>
+        <button on:click={async () => handleDelete(label.label)}>Delete</button>
       </div>
     {/each}
   </div>

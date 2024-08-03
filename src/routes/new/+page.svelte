@@ -1,32 +1,29 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { invoke } from "@tauri-apps/api/tauri";
 
   const inputTypes: string[] = ["password", "text"];
   let selectedType: string = "password";
-  let submitted: boolean = false;
 
   let label: string = "";
-  let secret: string = "";
+  let data: string = "";
 
   // clear secret when selectedType changes
   $: {
     selectedType;
-    secret = "";
+    data = "";
   }
 
-  function handleSubmit() {
-    submitted = true;
+  async function handleSubmit() {
+    await invoke("new_secret", {
+      kind: selectedType,
+      label: label,
+      data: data,
+    });
+
+    goto("/");
   }
 </script>
-
-<!-- TODO: remove this after debugging -->
-{#if submitted === true}
-  <div class="col w-100">
-    <p>submitted!</p>
-    <p>label: {label}</p>
-    <p>secret: {secret}</p>
-  </div>
-{/if}
 
 <div class="col w-100" style="justify-content: space-between; margin: 1rem;">
   <div class="row" style="justify-content: end;">
@@ -77,7 +74,7 @@
               id="password-input"
               placeholder="password"
               style="text-align: center;"
-              bind:value={secret}
+              bind:value={data}
               autocomplete="off"
             />
           </div>
@@ -88,7 +85,7 @@
             placeholder="place your text here..."
             rows="5"
             cols="100"
-            bind:value={secret}
+            bind:value={data}
             autocomplete="off"
           ></textarea>
         {:else}
