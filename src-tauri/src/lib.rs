@@ -74,13 +74,17 @@ impl Session {
     }
 
     pub fn close(mut self) -> Result<()> {
-        match self.db_conn {
-            Some(db) => {
-                db.close()?;
-                self.db_conn = None;
-                Ok(())
-            }
-            None => Ok(()),
+        if let Some(db) = self.db_conn.take() {
+            db.close()?;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        if let Some(db) = self.db_conn.take() {
+            db.close().expect("should close db connection");
         }
     }
 }
@@ -149,9 +153,6 @@ mod test {
             .unwrap();
 
         assert_eq!(secret, retrieved_secret);
-
-        // cleanup
-        sess.close().expect("should close session");
     }
 
     #[test]
@@ -180,9 +181,6 @@ mod test {
         for result in query {
             assert!(labels.contains(&result.label));
         }
-
-        // cleanup
-        sess.close().expect("should close session");
     }
 
     #[test]
@@ -198,9 +196,6 @@ mod test {
 
         sess.insert_into_db("password", &label1, &secret)
             .expect("should insert secret into db");
-
-        // cleanup
-        sess.close().expect("should close session");
     }
 
     #[test]
@@ -214,8 +209,5 @@ mod test {
 
         sess.insert_into_db("password", &label1, &secret)
             .expect("should insert secret into db");
-
-        // cleanup
-        sess.close().expect("should close session");
     }
 }

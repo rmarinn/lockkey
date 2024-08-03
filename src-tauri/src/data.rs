@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use rusqlite::{Connection, OptionalExtension};
 
 pub struct DbConn {
-    conn: Connection,
+    conn: Option<Connection>,
 }
 
 pub struct RetrieveLabelsQueryResult {
@@ -37,14 +37,32 @@ impl Kind {
 impl DbConn {
     pub fn new(path: &str) -> Result<DbConn> {
         let mut conn = DbConn {
-            conn: Connection::open(path)?,
+            conn: Some(Connection::open(path)?),
         };
         conn.create_table()?;
         Ok(conn)
     }
 
+    fn get_conn(&self) -> &Connection {
+        match &self.conn {
+            Some(conn) => conn,
+            None => Err(anyhow!("does not have connection to the dabase"))
+                .expect("should get connection"),
+        }
+    }
+
+    fn get_mut_conn(&mut self) -> &mut Connection {
+        match &mut self.conn {
+            Some(conn) => conn,
+            None => Err(anyhow!("does not have connection to the dabase"))
+                .expect("should get connection"),
+        }
+    }
+
     fn create_table(&mut self) -> Result<()> {
-        let transaction = self.conn.transaction()?;
+        let conn = self.get_mut_conn();
+
+        let transaction = conn.transaction()?;
 
         transaction.execute(
             "CREATE TABLE IF NOT EXISTS secrets (
@@ -62,7 +80,9 @@ impl DbConn {
     }
 
     pub fn insert_into_table(&self, kind: Kind, label: &str, data: &Vec<u8>) -> Result<()> {
-        self.conn.execute(
+        let conn = self.get_conn();
+
+        conn.execute(
             "INSERT INTO secrets (kind, label, data) VALUES (?1, ?2, ?3)",
             (kind.to_str(), label, data),
         )?;
@@ -70,7 +90,9 @@ impl DbConn {
     }
 
     pub fn retrieve_labels(&self) -> Result<Vec<RetrieveLabelsQueryResult>> {
-        let mut stmt = self.conn.prepare("SELECT kind, label FROM secrets")?;
+        let conn = self.get_conn();
+
+        let mut stmt = conn.prepare("SELECT kind, label FROM secrets")?;
 
         let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
 
@@ -85,9 +107,9 @@ impl DbConn {
     }
 
     pub fn retrieve_data(&self, label: &str) -> Result<Option<Vec<u8>>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT data FROM secrets WHERE label = ?1")?;
+        let conn = self.get_conn();
+
+        let mut stmt = conn.prepare("SELECT data FROM secrets WHERE label = ?1")?;
 
         let data = stmt
             .query_row([label], |row| row.get(0))
@@ -96,9 +118,19 @@ impl DbConn {
         data
     }
 
-    pub fn close(self) -> Result<()> {
-        self.conn.close().map_err(|(_, e)| e)?;
+    pub fn close(mut self) -> Result<()> {
+        if let Some(conn) = self.conn.take() {
+            conn.close().expect("should close db connection");
+        }
         Ok(())
+    }
+}
+
+impl Drop for DbConn {
+    fn drop(&mut self) {
+        if let Some(conn) = self.conn.take() {
+            conn.close().expect("should close db connection");
+        }
     }
 }
 
@@ -152,8 +184,7 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let conn = DbConn::new(db_path).unwrap();
-        conn.close().unwrap();
+        DbConn::new(db_path).unwrap();
     }
 
     #[test]
@@ -184,8 +215,6 @@ mod test {
             .expect("should retrieve data")
             .unwrap();
         assert_eq!(&data2, &passwd);
-
-        conn.close().unwrap();
     }
 
     #[test]
@@ -218,8 +247,6 @@ mod test {
             assert!(inputs.contains_key(&result.label));
             assert_eq!(inputs.get(&result.label), Some(&result.kind));
         }
-
-        conn.close().unwrap();
     }
 
     #[test]
@@ -234,7 +261,5 @@ mod test {
             .unwrap();
         conn.insert_into_table(Kind::Text, &String::from("pass1"), &"pass2".into())
             .unwrap();
-
-        conn.close().unwrap();
     }
 }
