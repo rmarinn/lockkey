@@ -99,11 +99,16 @@ impl DbConn {
 
         let mut stmt = conn.prepare("SELECT data FROM secrets WHERE label = ?1")?;
 
-        let data = stmt
-            .query_row([label], |row| row.get(0))
-            .optional()
-            .map_err(|e| e.into());
-        data
+        let data = stmt.query_row([label], |row| row.get(0)).optional()?;
+        Ok(data)
+    }
+
+    pub fn delete_data(&self, label: &str) -> Result<()> {
+        let conn = self.get_conn()?;
+
+        let mut stmt = conn.prepare("DELETE FROM secrets WHERE label = ?1")?;
+        stmt.execute([label])?;
+        Ok(())
     }
 
     pub fn close(mut self) -> Result<()> {
@@ -249,5 +254,41 @@ mod test {
             .unwrap();
         conn.insert_into_table(Kind::Text, &String::from("pass1"), &"pass2".into())
             .unwrap();
+    }
+
+    #[test]
+    fn can_delete_data_from_table() {
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
+
+        let conn = DbConn::new(db_path).unwrap();
+
+        let passwd: Vec<u8> = "passwd".into();
+        let label = "pass1".to_string();
+        conn.insert_into_table(Kind::Password, &label, &passwd)
+            .expect("should insert into table");
+
+        // check if data is inserted
+        let data = conn.retrieve_data(&label).expect("should retrieve data");
+        assert_eq!(data, Some(passwd));
+
+        conn.delete_data(&label).expect("should delete data");
+
+        // try to get data again
+        let data = conn.retrieve_data(&label).expect("should retrieve data");
+        assert_eq!(data, None);
+    }
+
+    #[test]
+    fn should_get_empty_when_fetching_nonexistent_data() {
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
+
+        let conn = DbConn::new(db_path).unwrap();
+
+        let data = conn
+            .retrieve_data(&String::from("data_label"))
+            .expect("should retrieve data");
+        assert_eq!(data, None);
     }
 }

@@ -20,6 +20,20 @@ impl Session {
         }
     }
 
+    fn get_key(&self) -> Result<&[u8; 32]> {
+        match &self.key {
+            Some(key) => Ok(key),
+            None => Err(anyhow!("session does not have a key yet")),
+        }
+    }
+
+    fn get_db_conn(&self) -> Result<&DbConn> {
+        match &self.db_conn {
+            Some(conn) => Ok(conn),
+            None => Err(anyhow!("connection to db is not established yet")),
+        }
+    }
+
     pub fn set_key(mut self, passwd: &String) -> Self {
         self.key = Some(derive_key(passwd.as_bytes()).expect("should derive key from password"));
         self
@@ -31,14 +45,8 @@ impl Session {
     }
 
     pub fn insert_into_db(&self, kind: &str, label: &str, data: &str) -> Result<()> {
-        let key = self
-            .key
-            .ok_or(anyhow!("cannot insert into db without setting a key first"))?;
-
-        let db = self
-            .db_conn
-            .as_ref()
-            .ok_or(anyhow!("cannot insert before connecting to db"))?;
+        let key = self.get_key()?;
+        let db = self.get_db_conn()?;
 
         let encrypted = encrypt(&key, &data.as_bytes())?;
         db.insert_into_table(Kind::from_str(kind)?, label, &encrypted)?;
@@ -46,13 +54,8 @@ impl Session {
     }
 
     pub fn retrieve_from_db(&self, label: &str) -> Result<Option<String>> {
-        let key = self.key.ok_or(anyhow!(
-            "cannot retrieve data from db without setting a key first"
-        ))?;
-
-        let db = self.db_conn.as_ref().ok_or(anyhow!(
-            "cannot retrieve data from db before connecting to db"
-        ))?;
+        let key = self.get_key()?;
+        let db = self.get_db_conn()?;
 
         let data = match db.retrieve_data(label)? {
             Some(d) => d,
@@ -65,12 +68,14 @@ impl Session {
     }
 
     pub fn retrieve_labels(&self) -> Result<Vec<RetrieveLabelsQueryResult>> {
-        let db = self
-            .db_conn
-            .as_ref()
-            .ok_or(anyhow!("cannot retrieve labels before connecting to db"))?;
-
+        let db = self.get_db_conn()?;
         Ok(db.retrieve_labels()?)
+    }
+
+    pub fn delete_data(&self, label: &str) -> Result<()> {
+        let db = self.get_db_conn()?;
+        db.delete_data(label)?;
+        Ok(())
     }
 
     pub fn close(mut self) -> Result<()> {
@@ -209,5 +214,50 @@ mod test {
 
         sess.insert_into_db("password", &label1, &secret)
             .expect("should insert secret into db");
+    }
+
+    #[test]
+    fn should_return_empty_on_nonexistent_labels() {
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
+
+        let master_pass = String::from("a$$word");
+
+        let sess = Session::new().set_key(&master_pass).connect_to_db(db_path);
+
+        let data = sess
+            .retrieve_from_db(&String::from("test"))
+            .expect("should retrieve from db");
+        assert_eq!(data, None);
+    }
+
+    #[test]
+    fn can_delete_data() {
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
+
+        let master_pass = String::from("a$$word");
+        let label = String::from("mypass");
+        let secret = String::from("mysecret");
+
+        let sess = Session::new().set_key(&master_pass).connect_to_db(db_path);
+
+        sess.insert_into_db("password", &label, &secret)
+            .expect("should insert secret into db");
+
+        // check if data is inserted successfully
+        let retrieved_secret = sess
+            .retrieve_from_db(&label)
+            .expect("should retrieve secret from db");
+        assert_eq!(retrieved_secret, Some(secret));
+
+        // delete data
+        sess.delete_data(&label).expect("should delete data");
+
+        // check if data is deleted
+        let retrieved_secret = sess
+            .retrieve_from_db(&label)
+            .expect("should retrieve secret from db");
+        assert_eq!(retrieved_secret, None);
     }
 }
