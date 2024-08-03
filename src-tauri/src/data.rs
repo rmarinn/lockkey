@@ -36,35 +36,24 @@ impl Kind {
 
 impl DbConn {
     pub fn new(path: &str) -> Result<DbConn> {
-        let mut conn = DbConn {
+        let conn = DbConn {
             conn: Some(Connection::open(path)?),
         };
         conn.create_table()?;
         Ok(conn)
     }
 
-    fn get_conn(&self) -> &Connection {
+    fn get_conn(&self) -> Result<&Connection> {
         match &self.conn {
-            Some(conn) => conn,
-            None => Err(anyhow!("does not have connection to the dabase"))
-                .expect("should get connection"),
+            Some(conn) => Ok(conn),
+            None => Err(anyhow!("does not have connection to the dabase")),
         }
     }
 
-    fn get_mut_conn(&mut self) -> &mut Connection {
-        match &mut self.conn {
-            Some(conn) => conn,
-            None => Err(anyhow!("does not have connection to the dabase"))
-                .expect("should get connection"),
-        }
-    }
+    fn create_table(&self) -> Result<()> {
+        let conn = self.get_conn()?;
 
-    fn create_table(&mut self) -> Result<()> {
-        let conn = self.get_mut_conn();
-
-        let transaction = conn.transaction()?;
-
-        transaction.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS secrets (
                 id      INTEGER PRIMARY KEY,
                 kind    TEXT NOT NULL CHECK(kind IN ('text', 'password')),
@@ -75,12 +64,11 @@ impl DbConn {
             (),
         )?;
 
-        transaction.commit()?;
         Ok(())
     }
 
     pub fn insert_into_table(&self, kind: Kind, label: &str, data: &Vec<u8>) -> Result<()> {
-        let conn = self.get_conn();
+        let conn = self.get_conn()?;
 
         conn.execute(
             "INSERT INTO secrets (kind, label, data) VALUES (?1, ?2, ?3)",
@@ -90,7 +78,7 @@ impl DbConn {
     }
 
     pub fn retrieve_labels(&self) -> Result<Vec<RetrieveLabelsQueryResult>> {
-        let conn = self.get_conn();
+        let conn = self.get_conn()?;
 
         let mut stmt = conn.prepare("SELECT kind, label FROM secrets")?;
 
@@ -107,7 +95,7 @@ impl DbConn {
     }
 
     pub fn retrieve_data(&self, label: &str) -> Result<Option<Vec<u8>>> {
-        let conn = self.get_conn();
+        let conn = self.get_conn()?;
 
         let mut stmt = conn.prepare("SELECT data FROM secrets WHERE label = ?1")?;
 
