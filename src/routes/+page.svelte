@@ -26,25 +26,31 @@
 </script>
 
 {#if labels.length === 0}
-  <div class="row justify-content-center align-items-center w-100 m-2">
-    <div class="col text-align-center">
-      <p>no secrets yet.</p>
-      <button on:click={() => goto("/new")}>Create a new secret</button>
+  <div class="justify-center content-center w-full m-4">
+    <div class="flex flex-col content-center gap-4">
+      <p class="block m-auto text-3xl">no secrets yet</p>
+      <button class="block m-auto" on:click={() => goto("/new")}
+        >Create a new secret</button
+      >
     </div>
   </div>
 {:else}
-  <div class="col w-100 align-items-center m-2">
-    <div class="row w-100" style="justify-content: end;">
+  <div class="flex flex-col w-full content-center m-4">
+    <div class="flex justify-end w-100">
       <button on:click={() => goto("/new")}>New</button>
     </div>
-    <h1 class="mb-3">Secrets:</h1>
-    {#each labels as label}
-      <div class="row mb-1 justify-content-center align-items-center">
-        <p class="mr-3">{label.label} ({label.kind})</p>
-        <button class="mr-1">Copy</button>
-        <button class="mr-1">View</button>
-        <button on:click={async () => handleDelete(label.label)}>Delete</button>
-      </div>
-    {/each}
+    <h1 class="mb-4 text-3xl text-center">Secrets:</h1>
+    <div class="flex flex-col gap-2">
+      {#each labels as label}
+        <div class="flex justify-center content-center gap-1">
+          <p class="mr-3 my-auto">{label.label} ({label.kind})</p>
+          <button class="mr-1">Copy</button>
+          <button class="mr-1">View</button>
+          <button on:click={async () => handleDelete(label.label)}
+            >Delete</button
+          >
+        </div>
+      {/each}
+    </div>
   </div>
 {/if}

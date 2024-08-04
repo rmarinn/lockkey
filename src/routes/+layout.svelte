@@ -1,7 +1,7 @@
-<script>
+<script lang="ts">
   import "../styles.css";
 </script>
 
-<div style="display: flex; min-height: 100vh; min-width: 100vw;">
+<div class="flex h-screen w-screen bg-indigo-400 text-white">
   <slot />
 </div>

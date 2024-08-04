@@ -3,7 +3,7 @@
   import { invoke } from "@tauri-apps/api/tauri";
 
   const inputTypes: string[] = ["password", "text"];
-  let selectedType: string = "password";
+  let selectedType: string = "text";
 
   let label: string = "";
   let data: string = "";
@@ -25,77 +25,74 @@
   }
 </script>
 
-<div class="col w-100" style="justify-content: space-between; margin: 1rem;">
-  <div class="row" style="justify-content: end;">
+<div class="flex flex-col w-full justify-between p-4">
+  <div class="flex justify-end">
     <button on:click={() => goto("/")}>Back</button>
   </div>
 
   <form
     on:submit|preventDefault={handleSubmit}
-    class="row justify-content-center align-items-center w-100"
-    style="flex: 3;"
+    class="flex flex-col justify-center content-center gap-4"
   >
-    <div class="col">
-      <div class="row mb-2">
-        <label for="input-type" class="mr-2">Secret type:</label>
+    <div class="flex gap-3 mx-auto">
+      <label for="input-type" class="mr-2">Secret type:</label>
 
-        {#each inputTypes as type}
-          <div class="mr-1">
-            <input
-              type="radio"
-              name="input-type"
-              id="input-type"
-              value={type}
-              bind:group={selectedType}
-            />
-            {type}
-          </div>
-        {/each}
+      {#each inputTypes as type}
+        <div>
+          <input
+            type="radio"
+            name="input-type"
+            id="input-type"
+            value={type}
+            bind:group={selectedType}
+          />
+          {type}
+        </div>
+      {/each}
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <div
+        class={`flex + ${selectedType === "password" ? " justify-center" : ""}`}
+      >
+        <input
+          type="text"
+          name="password-label-input"
+          placeholder="label"
+          class="text-center p-1 text-black"
+          bind:value={label}
+          autocomplete="off"
+        />
       </div>
-
-      <div class="mb-2 col">
-        <div
-          class={`row mb-1 + ${selectedType === "password" ? " justify-content-center" : ""}`}
-        >
+      {#if selectedType === "password"}
+        <div class="flex justify-center">
           <input
             type="text"
-            name="password-label-input"
-            placeholder="label"
-            style="text-align: center;"
-            bind:value={label}
+            name="password-input"
+            id="password-input"
+            placeholder="password"
+            class="text-center p-1 text-black"
+            bind:value={data}
             autocomplete="off"
           />
         </div>
-        {#if selectedType === "password"}
-          <div class="row justify-content-center mb-1">
-            <input
-              type="text"
-              name="password-input"
-              id="password-input"
-              placeholder="password"
-              style="text-align: center;"
-              bind:value={data}
-              autocomplete="off"
-            />
-          </div>
-        {:else if selectedType === "text"}
-          <textarea
-            name="text-input"
-            id="text-input"
-            placeholder="place your text here..."
-            rows="5"
-            cols="100"
-            bind:value={data}
-            autocomplete="off"
-          ></textarea>
-        {:else}
-          <p>Unknown type</p>
-        {/if}
-      </div>
+      {:else if selectedType === "text"}
+        <textarea
+          name="text-input"
+          id="text-input"
+          placeholder="place your text here..."
+          rows="5"
+          class="p-1 text-black"
+          bind:value={data}
+          autocomplete="off"
+        ></textarea>
+      {:else}
+        <p>Unknown type</p>
+      {/if}
+    </div>
 
-      <div class="row justify-content-center">
-        <button style="width: 200px;">Save</button>
-      </div>
+    <div class="flex justify-center">
+      <button style="width: 200px;">Save</button>
     </div>
   </form>
 
