@@ -3,7 +3,7 @@
   import { invoke } from "@tauri-apps/api/tauri";
 
   const inputTypes: string[] = ["password", "text"];
-  let selectedType: string = "text";
+  let selectedType: string = "password";
 
   let label: string = "";
   let data: string = "";
