@@ -53,7 +53,7 @@
     <div class="flex justify-end w-100">
       <button on:click={() => goto("/new")}>New</button>
     </div>
-    <h1 class="mb-4 text-3xl text-center">Secrets:</h1>
+    <h1 class="mb-4 text-3xl text-center">Secrets</h1>
     <div class="flex flex-col gap-3">
       {#each labels as label (label.label)}
         <div
