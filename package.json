@@ -13,7 +13,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@tauri-apps/api": "^1"
+    "@tauri-apps/api": "^1",
+    "svelte-material-icons": "^3.0.5"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.1",

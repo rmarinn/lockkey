@@ -28,11 +28,11 @@
 }
 
 button {
-  @apply p-2 border-2 border-white rounded-2xl bg-indigo-400 shadow-lg;
+  @apply p-2 border-2 border-white rounded-2xl bg-indigo-400 shadow-none;
 }
 
 button:hover {
-  @apply bg-white text-indigo-400 border-transparent shadow-none;
+  @apply bg-white text-indigo-400 border-transparent shadow-lg;
 }
 
 button:focus {
