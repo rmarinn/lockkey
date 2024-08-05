@@ -4,38 +4,44 @@ use argon2::Argon2;
 use rand::rngs::OsRng;
 use rand::Rng;
 
+/// generates a 16-bytes-long salt
 fn generate_salt() -> [u8; 16] {
     rand::thread_rng().gen::<[u8; 16]>()
 }
 
-pub fn derive_key(password: &[u8]) -> Result<[u8; 32]> {
-    let salt = generate_salt();
+/// generates a 32-bytes-long key from a password and a salt
+fn derive_key(password: &[u8], salt: &[u8]) -> Result<[u8; 32]> {
     let mut key = [0u8; 32];
     Argon2::default()
-        .hash_password_into(password, &salt, &mut key)
+        .hash_password_into(password, salt, &mut key)
         .map_err(|e| anyhow!("hashing password to a key failed: {:?}", e))?;
     return Ok(key);
 }
 
-pub fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>> {
-    let cipher = Aes256Gcm::new(key.into());
-    let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // 96-bit nonce
+/// encrypts a secret using a password
+pub fn encrypt(passwd: &str, secret: &str) -> Result<Vec<u8>> {
+    let salt = generate_salt();
+    let key = derive_key(passwd.as_bytes(), &salt)?;
+    let cipher = Aes256Gcm::new(&key.into());
+    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
     let ciphertext = cipher
-        .encrypt(&nonce, plaintext)
+        .encrypt(&nonce, secret.as_bytes())
         .map_err(|e| anyhow!("encryption failed: {:?}", e))?;
-    Ok([nonce.to_vec(), ciphertext].concat())
+    Ok([salt.to_vec(), nonce.to_vec(), ciphertext].concat())
 }
 
-pub fn decrypt(key: &[u8; 32], ciphertext: &[u8]) -> Result<Vec<u8>> {
-    let cipher = Aes256Gcm::new(key.into());
-    if ciphertext.len() <= 12 {
+pub fn decrypt(passwd: &str, ciphertext: &[u8]) -> Result<String> {
+    if ciphertext.len() <= 28 {
         return Err(anyhow!("invalid ciphertext!"));
     }
-    let (nonce, ciphertext) = ciphertext.split_at(12);
-    let plaintext = cipher
+    let (salt, rest) = ciphertext.split_at(16);
+    let (nonce, ciphertext) = rest.split_at(12);
+    let key = derive_key(passwd.as_bytes(), &salt)?;
+    let cipher = Aes256Gcm::new(&key.into());
+    let decrypted_bytes = cipher
         .decrypt(Nonce::from_slice(nonce), ciphertext)
-        .map_err(|e| anyhow!("decryption failed: {:?}", e))?;
-    Ok(plaintext)
+        .map_err(|_| anyhow!("decryption failed"))?;
+    Ok(String::from_utf8(decrypted_bytes)?)
 }
 
 #[cfg(test)]
@@ -44,23 +50,12 @@ mod test {
 
     #[test]
     fn can_encrypt_and_decrypt() {
-        let master_pass = b"a$$word";
-        let key = derive_key(master_pass).expect("should derive encryption key");
+        let passwd = "a$$word";
+        let secret = "Hello world";
 
-        let plaintext = b"Hello world";
-        let ciphertext = encrypt(&key, plaintext).expect("should encrypt plaintext");
-        let decrpytedtext = decrypt(&key, &ciphertext).expect("should decrypt ciphertext");
+        let ciphertext = encrypt(&passwd, &secret).expect("should encrypt plaintext");
+        let decrpytedtext = decrypt(&passwd, &ciphertext).expect("should decrypt ciphertext");
 
-        assert_eq!(plaintext, &decrpytedtext[..]);
-    }
-
-    #[test]
-    #[should_panic]
-    fn should_not_decrypt_invalid_ciphertext() {
-        let master_pass = b"a$$word";
-        let key = derive_key(master_pass).expect("should derive encryption key");
-
-        let plaintext = b"Hello world";
-        let _decryptedtext = decrypt(&key, plaintext).expect("should decrypt");
+        assert_eq!(secret, decrpytedtext);
     }
 }

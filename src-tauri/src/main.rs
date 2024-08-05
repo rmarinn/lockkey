@@ -14,7 +14,7 @@ fn new_secret(
 ) -> String {
     let sess = state.lock().expect("should get session");
 
-    match sess.insert_into_db(&kind, &label, &data) {
+    match sess.store_secret(&kind, &label, &data) {
         Ok(()) => "Ok".to_string(),
         Err(e) => format!("Error: {e:?}"),
     }
@@ -24,7 +24,7 @@ fn new_secret(
 fn delete_secret(label: String, state: tauri::State<Arc<Mutex<Session>>>) -> String {
     let sess = state.lock().expect("should get session");
 
-    match sess.delete_data(&label) {
+    match sess.delete_secret(&label) {
         Ok(()) => "Ok".to_string(),
         Err(e) => format!("Error: {e:?}"),
     }
@@ -52,16 +52,28 @@ fn get_labels(state: tauri::State<Arc<Mutex<Session>>>) -> Vec<Label> {
     }
 }
 
+#[tauri::command]
+fn get_secret(label: String, state: tauri::State<Arc<Mutex<Session>>>) -> Option<String> {
+    let sess = state.lock().expect("should get session");
+
+    match sess.retrieve_secret(&label) {
+        Ok(secret) => secret,
+        _ => None,
+    }
+}
+
 fn main() {
-    let sess = Session::new()
-        .set_key(&String::from("test"))
-        .connect_to_db("test.db");
+    let pass = "test".to_string();
+    let db_path = "./test.db";
+
+    let sess = Session::new().set_passwd(&pass).connect_to_db(&db_path);
     let sess = Arc::new(Mutex::new(sess));
     tauri::Builder::default()
         .manage(sess)
         .invoke_handler(tauri::generate_handler![
             get_labels,
             new_secret,
+            get_secret,
             delete_secret
         ])
         .run(tauri::generate_context!())
