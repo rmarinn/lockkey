@@ -2,6 +2,6 @@
   import "../styles.css";
 </script>
 
-<div class="flex h-screen w-screen bg-indigo-400 text-white">
+<div class="h-screen w-screen bg-indigo-400 text-white overflow-hidden">
   <slot />
 </div>

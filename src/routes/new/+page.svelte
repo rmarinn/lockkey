@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import { fly } from "svelte/transition";
+  import { fly, fade } from "svelte/transition";
 
   const inputTypes: string[] = ["password", "text"];
   let selectedType: string = "password";
@@ -26,7 +26,10 @@
   }
 </script>
 
-<div class="flex flex-col w-full p-4">
+<div
+  class="flex flex-col h-full w-full p-4"
+  in:fade={{ duration: 150, delay: 175 }}
+>
   <div class="flex justify-end">
     <button on:click={() => goto("/")}>Back</button>
   </div>
