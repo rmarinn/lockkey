@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import { fly, fade, slide } from "svelte/transition";
+  import { fly, fade } from "svelte/transition";
   import ContentCopy from "svelte-material-icons/ContentCopy.svelte";
   import EyeOffOutline from "svelte-material-icons/EyeOffOutline.svelte";
   import EyeOutline from "svelte-material-icons/EyeOutline.svelte";
@@ -53,6 +53,33 @@
     await invoke("delete_secret", { label: label });
     await getLabels();
   }
+
+  async function copyToClipboard(label: string) {
+    let data: string | undefined = undefined;
+
+    // check if the data is already in the secrets list
+    let secret = secrets.find((x) => x.label === label);
+    if (secret && secret.data !== undefined) {
+      data = secret.data;
+    } else {
+      // if not, fetch the data
+      data = await invoke<string | undefined>("get_secret", {
+        label: label,
+      });
+    }
+
+    // then copy the data to the clipboard
+    if (data !== undefined) {
+      navigator.clipboard
+        .writeText(data)
+        .then(() => {
+          alert("Text copied to clipboard");
+        })
+        .catch((err) => {
+          console.log("Failed to copy text: ", err);
+        });
+    }
+  }
 </script>
 
 <div
@@ -101,7 +128,11 @@
               class="item-buttons"
               transition:fly={{ x: 300, duration: 300 }}
             >
-              <button class="item-button"><ContentCopy /></button>
+              <button
+                class="item-button"
+                on:click={async () => copyToClipboard(secret.label)}
+                ><ContentCopy /></button
+              >
               {#if secret.data !== undefined}
                 <button
                   class="item-button"
