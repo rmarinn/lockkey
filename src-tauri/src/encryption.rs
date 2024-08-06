@@ -18,11 +18,44 @@ fn derive_key(password: &[u8], salt: &[u8]) -> Result<[u8; 32]> {
     return Ok(key);
 }
 
-/// encrypts a secret using a password
-pub fn encrypt(passwd: &str, secret: &str) -> Result<Vec<u8>> {
+pub fn generate_salt_from_string(string: &str) -> Vec<u8> {
+    use std::cmp::min;
+
+    const FIXED_SALT: &[u8] = b"!s4lTy_L0cK+k3Y~";
+    let string_bytes = string.as_bytes();
+
+    let mut combined_salt: Vec<u8> = Vec::with_capacity(string_bytes.len() + FIXED_SALT.len());
+
+    let string_len = string_bytes.len();
+    let salt_len = FIXED_SALT.len();
+
+    for i in 0..min(string_len, salt_len) {
+        combined_salt.push(string_bytes[i]);
+        combined_salt.push(FIXED_SALT[i]);
+    }
+
+    if string_len > salt_len {
+        combined_salt.extend_from_slice(&string_bytes[salt_len..string_len]);
+    } else {
+        combined_salt.extend_from_slice(&FIXED_SALT[string_len..salt_len]);
+    }
+
+    combined_salt
+}
+
+/// generates a 32-bytes-long key from a password and a salt
+pub fn derive_key_from_string(string: String, salt: Vec<u8>) -> Result<[u8; 32]> {
+    let mut key = [0u8; 32];
+    Argon2::default()
+        .hash_password_into(string.as_bytes().as_ref(), &salt, &mut key)
+        .map_err(|e| anyhow!("hashing string to a key failed: {:?}", e))?;
+    return Ok(key);
+}
+
+pub fn encrypt_using_key(key: &[u8], secret: String) -> Result<Vec<u8>> {
     let salt = generate_salt();
-    let key = derive_key(passwd.as_bytes(), &salt)?;
-    let cipher = Aes256Gcm::new(&key.into());
+    let ciper_key = derive_key(key, &salt)?;
+    let cipher = Aes256Gcm::new(&ciper_key.into());
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
     let ciphertext = cipher
         .encrypt(&nonce, secret.as_bytes())
@@ -30,14 +63,14 @@ pub fn encrypt(passwd: &str, secret: &str) -> Result<Vec<u8>> {
     Ok([salt.to_vec(), nonce.to_vec(), ciphertext].concat())
 }
 
-pub fn decrypt(passwd: &str, ciphertext: &[u8]) -> Result<String> {
+pub fn decrypt_using_key(key: &[u8], ciphertext: Vec<u8>) -> Result<String> {
     if ciphertext.len() <= 28 {
         return Err(anyhow!("invalid ciphertext!"));
     }
     let (salt, rest) = ciphertext.split_at(16);
     let (nonce, ciphertext) = rest.split_at(12);
-    let key = derive_key(passwd.as_bytes(), &salt)?;
-    let cipher = Aes256Gcm::new(&key.into());
+    let cipher_key = derive_key(key, &salt)?;
+    let cipher = Aes256Gcm::new(&cipher_key.into());
     let decrypted_bytes = cipher
         .decrypt(Nonce::from_slice(nonce), ciphertext)
         .map_err(|_| anyhow!("decryption failed"))?;
@@ -49,13 +82,28 @@ mod test {
     use super::*;
 
     #[test]
-    fn can_encrypt_and_decrypt() {
-        let passwd = "a$$word";
-        let secret = "Hello world";
+    fn can_generate_salt_from_string() {
+        let string = "abcdefg";
+        let salt = generate_salt_from_string(&string);
+        assert_eq!(b"a!bsc4dleTfyg_L0cK+k3Y~".to_vec(), salt);
 
-        let ciphertext = encrypt(&passwd, &secret).expect("should encrypt plaintext");
-        let decrpytedtext = decrypt(&passwd, &ciphertext).expect("should decrypt ciphertext");
+        let string = "abcdefghijklmnopqrstuv";
+        let salt = generate_salt_from_string(&string);
+        assert_eq!(b"a!bsc4dleTfyg_hLi0jckKl+mkn3oYp~qrstuv".to_vec(), salt);
+    }
 
-        assert_eq!(secret, decrpytedtext);
+    #[test]
+    fn can_encrypt_and_decrypt_using_key() {
+        let username = "user1".to_string();
+        let passwd = "test_password".to_string();
+        let secret = "Hello world".to_string();
+
+        let salt = generate_salt_from_string(&username);
+        let key = derive_key_from_string(passwd, salt).unwrap();
+
+        let ciphertext = encrypt_using_key(&key, secret.clone()).unwrap();
+        let decrypted = decrypt_using_key(&key, ciphertext).unwrap();
+
+        assert_eq!(secret, decrypted);
     }
 }

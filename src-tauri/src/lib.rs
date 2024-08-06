@@ -8,21 +8,21 @@ use crate::data::DbConn;
 use crate::encryption::*;
 
 pub struct Session {
-    passwd: Option<String>,
+    key: Option<[u8; 32]>,
     db_conn: Option<DbConn>,
 }
 
 impl Session {
     pub fn new() -> Self {
         Session {
-            passwd: None,
+            key: None,
             db_conn: None,
         }
     }
 
-    fn get_passwd(&self) -> Result<&String> {
-        match &self.passwd {
-            Some(pass) => Ok(pass),
+    fn get_key(&self) -> Result<&[u8; 32]> {
+        match &self.key {
+            Some(key) => Ok(key),
             None => Err(anyhow!("session does not have a key yet")),
         }
     }
@@ -34,8 +34,10 @@ impl Session {
         }
     }
 
-    pub fn set_passwd(mut self, passwd: &String) -> Self {
-        self.passwd = Some(passwd.clone());
+    pub fn set_credentials(mut self, username: &str, passwd: String) -> Self {
+        let salt = generate_salt_from_string(username);
+        self.key =
+            Some(derive_key_from_string(passwd, salt).expect("should derive key from string"));
         self
     }
 
@@ -44,17 +46,17 @@ impl Session {
         self
     }
 
-    pub fn store_secret(&self, kind: &str, label: &str, data: &str) -> Result<()> {
-        let passwd = self.get_passwd()?;
+    pub fn store_secret(&self, kind: &str, label: &str, data: String) -> Result<()> {
+        let key = self.get_key()?;
         let db = self.get_db_conn()?;
 
-        let encrypted = encrypt(&passwd, &data)?;
+        let encrypted = encrypt_using_key(key, data)?;
         db.insert_into_table(Kind::from_str(kind)?, label, &encrypted)?;
         Ok(())
     }
 
     pub fn retrieve_secret(&self, label: &str) -> Result<Option<String>> {
-        let key = self.get_passwd()?;
+        let key = self.get_key()?;
         let db = self.get_db_conn()?;
 
         let encrypted_secret = match db.retrieve_data(label)? {
@@ -62,7 +64,7 @@ impl Session {
             None => return Ok(None),
         };
 
-        let secret = decrypt(&key, &encrypted_secret)?;
+        let secret = decrypt_using_key(key, encrypted_secret)?;
         Ok(Some(secret))
     }
 
@@ -145,13 +147,16 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
+        let username = String::from("test_user");
         let passwd = String::from("a$$word");
         let label = String::from("mypass");
         let secret = String::from("mysecret");
 
-        let sess = Session::new().set_passwd(&passwd).connect_to_db(&db_path);
+        let sess = Session::new()
+            .set_credentials(&username, passwd)
+            .connect_to_db(&db_path);
 
-        sess.store_secret("password", &label, &secret)
+        sess.store_secret("password", &label, secret.clone())
             .expect("should insert secret into db");
 
         let retrieved_secret = sess
@@ -166,6 +171,7 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
+        let username = String::from("test_user");
         let master_pass = String::from("a$$word");
         let label1 = String::from("mypass");
         let label2 = String::from("mypass2");
@@ -173,14 +179,14 @@ mod test {
         let secret = String::from("mysecret");
 
         let sess = Session::new()
-            .set_passwd(&master_pass)
+            .set_credentials(&username, master_pass)
             .connect_to_db(db_path);
 
-        sess.store_secret("text", &label1, &secret)
+        sess.store_secret("text", &label1, secret.clone())
             .expect("should insert secret into db");
-        sess.store_secret("password", &label2, &secret)
+        sess.store_secret("password", &label2, secret.clone())
             .expect("should insert secret into db");
-        sess.store_secret("text", &label3, &secret)
+        sess.store_secret("text", &label3, secret.clone())
             .expect("should insert secret into db");
 
         let labels = vec![label1, label2, label3];
@@ -202,20 +208,21 @@ mod test {
 
         let sess = Session::new().connect_to_db(db_path);
 
-        sess.store_secret("password", &label1, &secret)
+        sess.store_secret("password", &label1, secret.clone())
             .expect("should insert secret into db");
     }
 
     #[test]
     #[should_panic]
     fn cannot_access_db_without_conn() {
+        let username = String::from("test_user");
         let master_pass = String::from("a$$word");
         let label1 = String::from("mypass");
         let secret = String::from("mysecret");
 
-        let sess = Session::new().set_passwd(&master_pass);
+        let sess = Session::new().set_credentials(&username, master_pass);
 
-        sess.store_secret("password", &label1, &secret)
+        sess.store_secret("password", &label1, secret.clone())
             .expect("should insert secret into db");
     }
 
@@ -224,10 +231,11 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
+        let username = String::from("test_user");
         let master_pass = String::from("a$$word");
 
         let sess = Session::new()
-            .set_passwd(&master_pass)
+            .set_credentials(&username, master_pass)
             .connect_to_db(db_path);
 
         let data = sess
@@ -241,15 +249,16 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
+        let username = String::from("test_user");
         let master_pass = String::from("a$$word");
         let label = String::from("mypass");
         let secret = String::from("mysecret");
 
         let sess = Session::new()
-            .set_passwd(&master_pass)
+            .set_credentials(&username, master_pass)
             .connect_to_db(db_path);
 
-        sess.store_secret("password", &label, &secret)
+        sess.store_secret("password", &label, secret.clone())
             .expect("should insert secret into db");
 
         // check if data is inserted successfully
@@ -273,16 +282,19 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
+        let username = String::from("user");
         let passwd = String::from("a$$word");
         let label = String::from("mypass");
         let secret = String::from("mysecret");
 
-        let sess = Session::new().set_passwd(&passwd).connect_to_db(db_path);
+        let sess = Session::new()
+            .set_credentials(&username, passwd)
+            .connect_to_db(db_path);
         let sess = Arc::new(Mutex::new(sess));
 
         // acquire lock then store
         let s = sess.lock().expect("should acquire lock");
-        s.store_secret("password", &label, &secret)
+        s.store_secret("password", &label, secret.clone())
             .expect("should store secret");
         drop(s);
 

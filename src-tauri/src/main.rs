@@ -14,7 +14,7 @@ fn new_secret(
 ) -> String {
     let sess = state.lock().expect("should get session");
 
-    match sess.store_secret(&kind, &label, &data) {
+    match sess.store_secret(&kind, &label, data) {
         Ok(()) => "Ok".to_string(),
         Err(e) => format!("Error: {e:?}"),
     }
@@ -63,10 +63,13 @@ fn get_secret(label: String, state: tauri::State<Arc<Mutex<Session>>>) -> Option
 }
 
 fn main() {
-    let pass = "test".to_string();
+    let username = "test_user".to_string();
+    let pass = "test_passwd".to_string();
     let db_path = "./test.db";
 
-    let sess = Session::new().set_passwd(&pass).connect_to_db(&db_path);
+    let sess = Session::new()
+        .set_credentials(&username, pass)
+        .connect_to_db(&db_path);
     let sess = Arc::new(Mutex::new(sess));
     tauri::Builder::default()
         .manage(sess)
