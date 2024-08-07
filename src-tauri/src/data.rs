@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, Transaction};
 
 pub struct DbConn {
     conn: Option<Connection>,
@@ -36,7 +36,7 @@ impl Kind {
 
 impl DbConn {
     pub fn new(path: &str) -> Result<DbConn> {
-        let conn = DbConn {
+        let mut conn = DbConn {
             conn: Some(Connection::open(path)?),
         };
         conn.create_table()?;
@@ -50,39 +50,114 @@ impl DbConn {
         }
     }
 
-    fn create_table(&self) -> Result<()> {
-        let conn = self.get_conn()?;
+    fn start_transaction(&mut self) -> Result<Transaction> {
+        match &mut self.conn {
+            Some(conn) => Ok(conn.transaction()?),
+            None => Err(anyhow!("does not have connection to the dabase")),
+        }
+    }
+
+    fn create_table(&mut self) -> Result<()> {
+        let conn = self.start_transaction()?;
 
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS secrets (
-                id      INTEGER PRIMARY KEY,
-                kind    TEXT NOT NULL CHECK(kind IN ('text', 'password')),
-                label   TEXT UNIQUE NOT NULL CHECK(length(label) <= 32),
-                data    BLOB NOT NULL
-            )
+            "CREATE TABLE IF NOT EXISTS users (
+                user_id     INTEGER PRIMARY KEY,
+                username    TEXT UNIQUE NOT NULL CHECK(length(username) <= 24),
+                passwd_hash TEXT NOT NULL,
+                enc_salt    BLOB NOT NULL
+            );
             ",
             (),
         )?;
 
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS secrets (
+                id          INTEGER PRIMARY KEY,
+                user_id     INTEGER,
+                kind        TEXT NOT NULL CHECK(kind IN ('text', 'password')),
+                label       TEXT UNIQUE NOT NULL CHECK(length(label) <= 32),
+                data        BLOB NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(user_id)
+            );
+            CREATE INDEX idx_secrets_user_id ON secrets (user_id);
+            ",
+            (),
+        )?;
+
+        conn.commit()?;
         Ok(())
     }
 
-    pub fn insert_into_table(&self, kind: Kind, label: &str, data: &Vec<u8>) -> Result<()> {
+    pub fn create_user(&self, username: &str, passwd_hash: &str, enc_salt: &[u8]) -> Result<()> {
         let conn = self.get_conn()?;
 
         conn.execute(
-            "INSERT INTO secrets (kind, label, data) VALUES (?1, ?2, ?3)",
-            (kind.to_str(), label, data),
+            "INSERT INTO users (username, passwd_hash, enc_salt) VALUES (?1, ?2, ?3)",
+            (username, passwd_hash, enc_salt),
         )?;
         Ok(())
     }
 
-    pub fn retrieve_labels(&self) -> Result<Vec<RetrieveLabelsQueryResult>> {
+    pub fn get_user_id(&self, username: &str) -> Result<Option<i64>> {
         let conn = self.get_conn()?;
 
-        let mut stmt = conn.prepare("SELECT kind, label FROM secrets")?;
+        let mut stmt = conn.prepare("SELECT user_id FROM users WHERE username = ?1")?;
+        let user_id: Option<i64> = stmt.query_row([username], |row| row.get(0)).optional()?;
 
-        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        Ok(user_id)
+    }
+
+    pub fn get_username(&self, user_id: &i64) -> Result<Option<String>> {
+        let conn = self.get_conn()?;
+
+        let mut stmt = conn.prepare("SELECT username FROM users WHERE user_id = ?1")?;
+        let user_id: Option<String> = stmt.query_row([user_id], |row| row.get(0)).optional()?;
+
+        Ok(user_id)
+    }
+
+    pub fn get_user_passwd_hash(&self, username: &str) -> Result<Option<String>> {
+        let conn = self.get_conn()?;
+
+        let mut stmt = conn.prepare("SELECT passwd_hash FROM users WHERE username = ?1")?;
+        let db_passwd_hash: Option<String> =
+            stmt.query_row([username], |row| row.get(0)).optional()?;
+
+        Ok(db_passwd_hash)
+    }
+
+    pub fn get_user_enc_salt(&self, username: &str) -> Result<Option<Vec<u8>>> {
+        let conn = self.get_conn()?;
+
+        let mut stmt = conn.prepare("SELECT enc_salt FROM users WHERE username = ?1")?;
+        let enc_salt: Option<Vec<u8>> = stmt.query_row([username], |row| row.get(0)).optional()?;
+
+        Ok(enc_salt)
+    }
+
+    pub fn delete_user(&self, username: &str) -> Result<()> {
+        let conn = self.get_conn()?;
+        let mut stmt = conn.prepare("DELETE FROM users WHERE username = ?1")?;
+        stmt.execute([username])?;
+        Ok(())
+    }
+
+    pub fn store_secret(&self, user_id: i64, kind: Kind, label: &str, data: Vec<u8>) -> Result<()> {
+        let conn = self.get_conn()?;
+
+        conn.execute(
+            "INSERT INTO secrets (user_id, kind, label, data) VALUES (?1, ?2, ?3, ?4)",
+            (user_id, kind.to_str(), label, data),
+        )?;
+        Ok(())
+    }
+
+    pub fn get_labels(&self, user_id: i64) -> Result<Vec<RetrieveLabelsQueryResult>> {
+        let conn = self.get_conn()?;
+
+        let mut stmt = conn.prepare("SELECT kind, label FROM secrets WHERE user_id = ?1")?;
+        let rows = stmt.query_map([user_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
 
         let mut labels: Vec<RetrieveLabelsQueryResult> = Vec::new();
         for row in rows {
@@ -94,20 +169,23 @@ impl DbConn {
         Ok(labels)
     }
 
-    pub fn retrieve_data(&self, label: &str) -> Result<Option<Vec<u8>>> {
+    pub fn get_secret(&self, user_id: i64, label: &str) -> Result<Option<Vec<u8>>> {
         let conn = self.get_conn()?;
 
-        let mut stmt = conn.prepare("SELECT data FROM secrets WHERE label = ?1")?;
+        let mut stmt =
+            conn.prepare("SELECT data FROM secrets WHERE user_id = ?1 AND label = ?2")?;
 
-        let data = stmt.query_row([label], |row| row.get(0)).optional()?;
+        let data = stmt
+            .query_row([user_id.to_string(), label.to_string()], |row| row.get(0))
+            .optional()?;
         Ok(data)
     }
 
-    pub fn delete_data(&self, label: &str) -> Result<()> {
+    pub fn delete_secret(&self, user_id: &i64, label: &str) -> Result<()> {
         let conn = self.get_conn()?;
 
-        let mut stmt = conn.prepare("DELETE FROM secrets WHERE label = ?1")?;
-        stmt.execute([label])?;
+        let mut stmt = conn.prepare("DELETE FROM secrets WHERE user_id == ?1 AND label = ?2;")?;
+        stmt.execute([user_id.to_string(), label.to_string()])?;
         Ok(())
     }
 
@@ -184,29 +262,29 @@ mod test {
     fn can_insert_and_retrieve_data_from_table() {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
-
         let conn = DbConn::new(db_path).unwrap();
+
+        // setup credentials
+        let username = "test_user";
+        let passwd = "test_pass";
+        let enc_salt = b"test_salt";
+
+        conn.create_user(username, passwd, enc_salt).unwrap();
 
         let passwd: Vec<u8> = "passwd".into();
         let label1 = "pass1".to_string();
-        conn.insert_into_table(Kind::Password, &label1, &passwd)
-            .expect("should insert into table");
+        conn.store_secret(1, Kind::Password, &label1, passwd.clone())
+            .unwrap();
 
         let label2 = "pass2".to_string();
-        conn.insert_into_table(Kind::Text, &label2, &passwd)
-            .expect("should insert into table");
+        conn.store_secret(1, Kind::Text, &label2, passwd.clone())
+            .unwrap();
 
         // getting back the data
-        let data1 = conn
-            .retrieve_data(&label1)
-            .expect("should retrieve data")
-            .unwrap();
+        let data1 = conn.get_secret(1, &label1).unwrap().unwrap();
         assert_eq!(&data1, &passwd);
 
-        let data2 = conn
-            .retrieve_data(&label2)
-            .expect("should retrieve data")
-            .unwrap();
+        let data2 = conn.get_secret(1, &label2).unwrap().unwrap();
         assert_eq!(&data2, &passwd);
     }
 
@@ -214,21 +292,26 @@ mod test {
     fn can_retrieve_labels() {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
-
         let conn = DbConn::new(db_path).unwrap();
+
+        // setup credentials
+        let username = "test_user";
+        let passwd = "test_pass";
+        let enc_salt = b"test_salt";
+        conn.create_user(username, passwd, enc_salt).unwrap();
 
         let passwd: Vec<u8> = "passwd".into();
         let label1 = "pass1".to_string();
         let kind1 = Kind::Password;
-        conn.insert_into_table(kind1.clone(), &label1, &passwd)
+        conn.store_secret(1, kind1.clone(), &label1, passwd.clone())
             .expect("should insert into table");
 
         let label2 = "pass2".to_string();
         let kind2 = Kind::Text;
-        conn.insert_into_table(kind2.clone(), &label2, &passwd)
+        conn.store_secret(1, kind2.clone(), &label2, passwd.clone())
             .expect("should insert into table");
 
-        let query = conn.retrieve_labels().expect("should retrieve labels");
+        let query = conn.get_labels(1).expect("should retrieve labels");
 
         assert_eq!(query.len(), 2);
 
@@ -247,12 +330,11 @@ mod test {
     fn should_have_unique_labels() {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
-
         let conn = DbConn::new(db_path).unwrap();
 
-        conn.insert_into_table(Kind::Password, &String::from("pass1"), &"pass1".into())
+        conn.store_secret(1, Kind::Password, &String::from("pass1"), b"pass1".to_vec())
             .unwrap();
-        conn.insert_into_table(Kind::Text, &String::from("pass1"), &"pass2".into())
+        conn.store_secret(1, Kind::Text, &String::from("pass1"), b"pass2".to_vec())
             .unwrap();
     }
 
@@ -263,19 +345,25 @@ mod test {
 
         let conn = DbConn::new(db_path).unwrap();
 
+        // setup credentials
+        let username = "test_user";
+        let passwd = "test_pass";
+        let enc_salt = b"test_salt";
+        conn.create_user(username, passwd, enc_salt).unwrap();
+
         let passwd: Vec<u8> = "passwd".into();
         let label = "pass1".to_string();
-        conn.insert_into_table(Kind::Password, &label, &passwd)
+        conn.store_secret(1, Kind::Password, &label, passwd.clone())
             .expect("should insert into table");
 
         // check if data is inserted
-        let data = conn.retrieve_data(&label).expect("should retrieve data");
+        let data = conn.get_secret(1, &label).unwrap();
         assert_eq!(data, Some(passwd));
 
-        conn.delete_data(&label).expect("should delete data");
+        conn.delete_secret(&1, &label).expect("should delete data");
 
         // try to get data again
-        let data = conn.retrieve_data(&label).expect("should retrieve data");
+        let data = conn.get_secret(1, &label).unwrap();
         assert_eq!(data, None);
     }
 
@@ -286,9 +374,81 @@ mod test {
 
         let conn = DbConn::new(db_path).unwrap();
 
-        let data = conn
-            .retrieve_data(&String::from("data_label"))
-            .expect("should retrieve data");
+        let data = conn.get_secret(1, &String::from("data_label")).unwrap();
         assert_eq!(data, None);
+    }
+
+    #[test]
+    fn can_create_and_delete_user() {
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
+
+        let conn = DbConn::new(db_path).unwrap();
+
+        let username1 = "test_user1";
+        let username2 = "test_user2";
+        let passwd_hash = "test_pass";
+        let salt = b"salt";
+        conn.create_user(username1, &passwd_hash, salt).unwrap();
+        conn.create_user(username2, &passwd_hash, salt).unwrap();
+
+        // check if user is created
+        let retrieved_hash = conn.get_user_passwd_hash(&username2).unwrap();
+        let user_id = conn.get_user_id(username2).unwrap();
+        assert_eq!(retrieved_hash, Some(passwd_hash.to_string()));
+        assert_eq!(user_id, Some(2));
+
+        // delete user
+        conn.delete_user(&username2).unwrap();
+        let retrieved_hash = conn.get_user_passwd_hash(&username2).unwrap();
+        assert_eq!(retrieved_hash, None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cannot_create_user_with_same_username() {
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
+
+        let conn = DbConn::new(db_path).unwrap();
+
+        let username = "test_user";
+        let passwd_hash = "test_pass";
+        let salt = b"salt";
+        conn.create_user(username, passwd_hash, salt).unwrap();
+        conn.create_user(username, passwd_hash, salt).unwrap();
+    }
+
+    #[test]
+    fn should_only_retrieve_data_for_user() {
+        let test_db = TestDb::new();
+        let db_path = test_db.get_path();
+
+        let conn = DbConn::new(db_path).unwrap();
+
+        let username1 = "test_user1";
+        let username2 = "test_user2";
+        let passwd_hash = "passwd";
+        let salt = b"salt";
+
+        conn.create_user(username1, passwd_hash, salt).unwrap();
+        conn.create_user(username2, passwd_hash, salt).unwrap();
+
+        // check if user is created
+        conn.store_secret(1, Kind::Password, &"sec1".to_string(), b"s1".to_vec())
+            .unwrap();
+        conn.store_secret(2, Kind::Password, &"sec2".to_string(), b"s2".to_vec())
+            .unwrap();
+        conn.store_secret(2, Kind::Password, &"sec3".to_string(), b"s3".to_vec())
+            .unwrap();
+
+        let labels1 = conn.get_labels(1).unwrap();
+        assert_eq!(labels1.len(), 1);
+
+        let labels2 = conn.get_labels(2).unwrap();
+        assert_eq!(labels2.len(), 2);
+
+        let labels3 = conn.get_labels(3).unwrap();
+        assert_eq!(labels3.len(), 0);
     }
 }

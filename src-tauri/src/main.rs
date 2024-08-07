@@ -62,14 +62,17 @@ fn get_secret(label: String, state: tauri::State<Arc<Mutex<Session>>>) -> Option
     }
 }
 
+#[tauri::command]
+fn is_authenticated(state: tauri::State<Arc<Mutex<Session>>>) -> bool {
+    let sess = state.lock().expect("should get session");
+    sess.is_authenticated()
+}
+
 fn main() {
-    let username = "test_user".to_string();
-    let pass = "test_passwd".to_string();
     let db_path = "./test.db";
 
-    let sess = Session::new()
-        .set_credentials(&username, pass)
-        .connect_to_db(&db_path);
+    let sess = Session::new().connect_to_db(&db_path);
+
     let sess = Arc::new(Mutex::new(sess));
     tauri::Builder::default()
         .manage(sess)
@@ -77,7 +80,8 @@ fn main() {
             get_labels,
             new_secret,
             get_secret,
-            delete_secret
+            delete_secret,
+            is_authenticated
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

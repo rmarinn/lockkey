@@ -1,22 +1,35 @@
-pub mod data;
-pub mod encryption;
+mod auth;
+mod data;
+mod encryption;
 
 use anyhow::{anyhow, Result};
+use auth::{hash_password, verify_passwd};
 use data::{Kind, RetrieveLabelsQueryResult};
 
 use crate::data::DbConn;
 use crate::encryption::*;
 
+#[allow(dead_code)]
 pub struct Session {
+    user_id: Option<i64>,
     key: Option<[u8; 32]>,
     db_conn: Option<DbConn>,
 }
 
+#[allow(dead_code)]
 impl Session {
     pub fn new() -> Self {
         Session {
+            user_id: None,
             key: None,
             db_conn: None,
+        }
+    }
+
+    fn get_user_id(&self) -> Result<i64> {
+        match &self.user_id {
+            Some(id) => Ok(*id),
+            None => Err(anyhow!("session does not have a user_id yet")),
         }
     }
 
@@ -34,11 +47,66 @@ impl Session {
         }
     }
 
-    pub fn set_credentials(mut self, username: &str, passwd: String) -> Self {
-        let salt = generate_salt_from_string(username);
-        self.key =
-            Some(derive_key_from_string(passwd, salt).expect("should derive key from string"));
-        self
+    pub fn is_authenticated(&self) -> bool {
+        self.key.is_some()
+    }
+
+    pub fn create_user(&self, username: &str, passwd: &str) -> Result<()> {
+        let db = self.get_db_conn().expect("should get db connection");
+        let enc_salt = generate_salt();
+        let passwd_hash = hash_password(&passwd)?;
+        db.create_user(username, &passwd_hash, &enc_salt)?;
+        Ok(())
+    }
+
+    pub fn delete_user(&self, passwd: &str) -> Result<()> {
+        let db = self.get_db_conn().expect("should get db connection");
+
+        let usrname = match db.get_username(&self.get_user_id()?)? {
+            Some(usrname) => usrname,
+            None => return Err(anyhow!("user does not exist")),
+        };
+
+        let stored_hash = match db.get_user_passwd_hash(&usrname)? {
+            Some(hash) => hash,
+            None => return Err(anyhow!("user does not have a stored hash")),
+        };
+
+        if !verify_passwd(&passwd, &stored_hash)? {
+            return Err(anyhow!("invalid password"));
+        }
+
+        db.delete_user(&usrname)?;
+
+        Ok(())
+    }
+
+    pub fn authenticate_user(&mut self, username: &str, passwd: &str) -> Result<()> {
+        let db = self.get_db_conn().expect("should get db connection");
+
+        let passwd_hash = match db.get_user_passwd_hash(&username)? {
+            Some(hash) => hash,
+            None => return Err(anyhow!("invalid username or password")),
+        };
+
+        if !verify_passwd(&passwd, &passwd_hash)? {
+            return Err(anyhow!("invalid username or password"));
+        }
+
+        let enc_key = match db.get_user_enc_salt(username)? {
+            Some(salt) => Some(derive_encryption_key(&passwd, &salt)?),
+            None => return Err(anyhow!("user has missing data")),
+        };
+
+        let user_id = match db.get_user_id(&username)? {
+            Some(id) => Some(id),
+            None => return Err(anyhow!("user has missing data")),
+        };
+
+        self.key = enc_key;
+        self.user_id = user_id;
+
+        Ok(())
     }
 
     pub fn connect_to_db(mut self, db_path: &str) -> Self {
@@ -50,8 +118,8 @@ impl Session {
         let key = self.get_key()?;
         let db = self.get_db_conn()?;
 
-        let encrypted = encrypt_using_key(key, data)?;
-        db.insert_into_table(Kind::from_str(kind)?, label, &encrypted)?;
+        let encrypted = encrypt_using_key(key, &data)?;
+        db.store_secret(self.get_user_id()?, Kind::from_str(kind)?, label, encrypted)?;
         Ok(())
     }
 
@@ -59,7 +127,7 @@ impl Session {
         let key = self.get_key()?;
         let db = self.get_db_conn()?;
 
-        let encrypted_secret = match db.retrieve_data(label)? {
+        let encrypted_secret = match db.get_secret(self.get_user_id()?, label)? {
             Some(d) => d,
             None => return Ok(None),
         };
@@ -70,12 +138,12 @@ impl Session {
 
     pub fn retrieve_labels(&self) -> Result<Vec<RetrieveLabelsQueryResult>> {
         let db = self.get_db_conn()?;
-        Ok(db.retrieve_labels()?)
+        Ok(db.get_labels(self.get_user_id()?)?)
     }
 
     pub fn delete_secret(&self, label: &str) -> Result<()> {
         let db = self.get_db_conn()?;
-        db.delete_data(label)?;
+        db.delete_secret(&self.get_user_id()?, label)?;
         Ok(())
     }
 
@@ -147,23 +215,22 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let username = String::from("test_user");
-        let passwd = String::from("a$$word");
-        let label = String::from("mypass");
-        let secret = String::from("mysecret");
+        let username = "test_user";
+        let passwd = "test_pass";
+        let label = "mypass";
+        let secret = "mysecret";
 
-        let sess = Session::new()
-            .set_credentials(&username, passwd)
-            .connect_to_db(&db_path);
+        let mut sess = Session::new().connect_to_db(&db_path);
+        sess.create_user(&username, passwd).unwrap();
+        sess.authenticate_user(&username.to_string(), passwd)
+            .unwrap();
 
-        sess.store_secret("password", &label, secret.clone())
+        sess.store_secret("password", &label, secret.to_string())
             .expect("should insert secret into db");
 
-        let retrieved_secret = sess
-            .retrieve_secret(&label)
-            .expect("should retrieve secret from db");
+        let retrieved_secret = sess.retrieve_secret(&label).unwrap();
 
-        assert_eq!(Some(secret), retrieved_secret);
+        assert_eq!(Some(secret.to_string()), retrieved_secret);
     }
 
     #[test]
@@ -171,25 +238,26 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let username = String::from("test_user");
-        let master_pass = String::from("a$$word");
-        let label1 = String::from("mypass");
-        let label2 = String::from("mypass2");
-        let label3 = String::from("mypass3");
-        let secret = String::from("mysecret");
+        let username = "test_user";
+        let passwd = "test_pass";
+        let label1 = "mypass";
+        let label2 = "mypass2";
+        let label3 = "mypass3";
+        let secret = "mysecret";
 
-        let sess = Session::new()
-            .set_credentials(&username, master_pass)
-            .connect_to_db(db_path);
+        let mut sess = Session::new().connect_to_db(db_path);
+        sess.create_user(&username, passwd).unwrap();
+        sess.authenticate_user(&username.to_string(), passwd)
+            .unwrap();
 
-        sess.store_secret("text", &label1, secret.clone())
+        sess.store_secret("text", &label1, secret.to_string())
             .expect("should insert secret into db");
-        sess.store_secret("password", &label2, secret.clone())
+        sess.store_secret("password", &label2, secret.to_string())
             .expect("should insert secret into db");
-        sess.store_secret("text", &label3, secret.clone())
+        sess.store_secret("text", &label3, secret.to_string())
             .expect("should insert secret into db");
 
-        let labels = vec![label1, label2, label3];
+        let labels = vec![label1.to_string(), label2.to_string(), label3.to_string()];
         let query = sess.retrieve_labels().expect("should retrieve labels");
 
         for result in query {
@@ -203,44 +271,45 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let label1 = String::from("mypass");
-        let secret = String::from("mysecret");
+        let label1 = "mypass";
+        let secret = "mysecret";
 
         let sess = Session::new().connect_to_db(db_path);
 
-        sess.store_secret("password", &label1, secret.clone())
+        sess.store_secret("password", &label1, secret.to_string())
             .expect("should insert secret into db");
     }
 
     #[test]
     #[should_panic]
     fn cannot_access_db_without_conn() {
-        let username = String::from("test_user");
-        let master_pass = String::from("a$$word");
-        let label1 = String::from("mypass");
-        let secret = String::from("mysecret");
+        let label1 = "mypass";
+        let secret = "mysecret";
+        let username = "test_user";
+        let passwd = "test_pass";
 
-        let sess = Session::new().set_credentials(&username, master_pass);
+        let mut sess = Session::new();
+        sess.create_user(&username, passwd).unwrap();
+        sess.authenticate_user(&username.to_string(), passwd)
+            .unwrap();
 
-        sess.store_secret("password", &label1, secret.clone())
-            .expect("should insert secret into db");
+        sess.store_secret("password", &label1, secret.to_string())
+            .unwrap();
     }
 
     #[test]
     fn should_return_empty_on_nonexistent_labels() {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
+        let username = "test_user";
+        let passwd = "test_pass";
 
-        let username = String::from("test_user");
-        let master_pass = String::from("a$$word");
+        let mut sess = Session::new().connect_to_db(db_path);
+        sess.create_user(&username, passwd).unwrap();
+        sess.authenticate_user(&username.to_string(), passwd)
+            .unwrap();
 
-        let sess = Session::new()
-            .set_credentials(&username, master_pass)
-            .connect_to_db(db_path);
-
-        let data = sess
-            .retrieve_secret(&String::from("test"))
-            .expect("should retrieve from db");
+        let data = sess.retrieve_secret("test").unwrap();
         assert_eq!(data, None);
     }
 
@@ -249,23 +318,24 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let username = String::from("test_user");
-        let master_pass = String::from("a$$word");
-        let label = String::from("mypass");
-        let secret = String::from("mysecret");
+        let username = "test_user";
+        let passwd = "test_pass";
+        let label = "mypass";
+        let secret = "mysecret";
 
-        let sess = Session::new()
-            .set_credentials(&username, master_pass)
-            .connect_to_db(db_path);
+        let mut sess = Session::new().connect_to_db(db_path);
+        sess.create_user(&username, passwd).unwrap();
+        sess.authenticate_user(&username.to_string(), passwd)
+            .unwrap();
 
-        sess.store_secret("password", &label, secret.clone())
+        sess.store_secret("password", &label, secret.to_string())
             .expect("should insert secret into db");
 
         // check if data is inserted successfully
         let retrieved_secret = sess
             .retrieve_secret(&label)
             .expect("should retrieve secret from db");
-        assert_eq!(retrieved_secret, Some(secret));
+        assert_eq!(retrieved_secret, Some(secret.to_string()));
 
         // delete data
         sess.delete_secret(&label).expect("should delete data");
@@ -282,19 +352,21 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let username = String::from("user");
-        let passwd = String::from("a$$word");
-        let label = String::from("mypass");
-        let secret = String::from("mysecret");
+        let username = "user";
+        let passwd = "test_pass";
+        let label = "mypass";
+        let secret = "mysecret";
 
-        let sess = Session::new()
-            .set_credentials(&username, passwd)
-            .connect_to_db(db_path);
+        let mut sess = Session::new().connect_to_db(db_path);
+        sess.create_user(&username, passwd).unwrap();
+        sess.authenticate_user(&username.to_string(), passwd)
+            .unwrap();
+
         let sess = Arc::new(Mutex::new(sess));
 
         // acquire lock then store
         let s = sess.lock().expect("should acquire lock");
-        s.store_secret("password", &label, secret.clone())
+        s.store_secret("password", &label, secret.to_string())
             .expect("should store secret");
         drop(s);
 
@@ -303,6 +375,6 @@ mod test {
         let retrieved_passwd = s.retrieve_secret(&label).expect("should retrieve password");
         drop(s);
 
-        assert_eq!(retrieved_passwd, Some(secret));
+        assert_eq!(retrieved_passwd, Some(secret.to_string()));
     }
 }
