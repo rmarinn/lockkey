@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import { onMount, type DispatchOptions } from "svelte";
+  import { onMount } from "svelte";
   import { fade } from "svelte/transition";
   import ListItems from "./ListItems.svelte";
 
