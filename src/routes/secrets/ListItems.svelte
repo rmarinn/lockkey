@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
   import { fly, fade } from "svelte/transition";
+  import { createEventDispatcher } from "svelte";
   import ContentCopy from "svelte-material-icons/ContentCopy.svelte";
   import EyeOffOutline from "svelte-material-icons/EyeOffOutline.svelte";
   import EyeOutline from "svelte-material-icons/EyeOutline.svelte";
@@ -20,9 +20,12 @@
 
   export let secrets: Secret[] = [];
 
-  async function getLabels() {
+  const dispatch = createEventDispatcher();
+
+  async function getSecrets() {
     secrets = await invoke<Secret[]>("get_labels");
     secrets = secrets.map((label) => ({ ...label, showButtons: false }));
+    dispatch("listUpdated", { secrets: secrets });
   }
 
   async function showData(label: string) {
@@ -51,7 +54,7 @@
 
   async function handleDelete(label: string) {
     await invoke("delete_secret", { label: label });
-    await getLabels();
+    await getSecrets();
   }
 
   async function copyToClipboard(label: string) {
@@ -82,80 +85,68 @@
   }
 </script>
 
-<div
-  class="flex flex-col w-full content-center p-4"
-  in:fade={{ duration: 150, delay: 175 }}
-  out:fade={{ duration: 150 }}
->
-  <div class="flex justify-end w-100">
-    <button on:click={() => goto("/new")}>New</button>
-  </div>
-  <h1 class="mb-4 text-3xl text-center">Secrets</h1>
-  <div class="flex flex-col gap-3">
-    {#each secrets as secret (secret.label)}
-      <div
-        class="list-item p-2"
-        on:mouseenter={() => setHoverState(secret, true)}
-        on:mouseleave={() => setHoverState(secret, false)}
-        in:fly|global={{ y: 300, duration: 200, delay: 175 }}
-        out:fade|global={{ duration: 150 }}
-        role="region"
-      >
-        <div class="item-icon">
-          {#if secret.kind === "password"}
-            <KeyVariant />
-          {:else if secret.kind === "text"}
-            <TextLong />
-          {:else}
-            <FileDocumentAlertOutline />
-          {/if}
-        </div>
-        <div class="item-label">
-          {secret.label}
-        </div>
-        <div class="item-secret">
-          {#if secret.data !== undefined}
-            <p>{secret.data}</p>
-          {:else}
-            {#each [...Array(6).keys()] as _}
-              <AsteriskCircleOutline size="0.9rem" />
-            {/each}
-          {/if}
-        </div>
-        <div class="buttons-container">
-          {#if secret.showButtons}
-            <div
-              class="item-buttons"
-              transition:fly={{ x: 300, duration: 300 }}
-            >
-              <button
-                class="item-button"
-                on:click={async () => copyToClipboard(secret.label)}
-                ><ContentCopy /></button
-              >
-              {#if secret.data !== undefined}
-                <button
-                  class="item-button"
-                  on:click={() => hideData(secret.label)}><EyeOutline /></button
-                >
-              {:else}
-                <button
-                  class="item-button"
-                  on:click={async () => showData(secret.label)}
-                  ><EyeOffOutline /></button
-                >
-              {/if}
-              <button
-                class="item-button"
-                on:click={async () => handleDelete(secret.label)}
-                ><TrashCanOutline /></button
-              >
-            </div>
-          {/if}
-        </div>
+<h1 class="mb-4 text-3xl text-center">Secrets</h1>
+<div class="flex flex-col gap-3">
+  {#each secrets as secret (secret.label)}
+    <div
+      class="list-item p-2"
+      on:mouseenter={() => setHoverState(secret, true)}
+      on:mouseleave={() => setHoverState(secret, false)}
+      in:fly|global={{ y: 300, duration: 200, delay: 175 }}
+      out:fade|global={{ duration: 150 }}
+      role="region"
+    >
+      <div class="item-icon">
+        {#if secret.kind === "password"}
+          <KeyVariant />
+        {:else if secret.kind === "text"}
+          <TextLong />
+        {:else}
+          <FileDocumentAlertOutline />
+        {/if}
       </div>
-    {/each}
-  </div>
+      <div class="item-label">
+        {secret.label}
+      </div>
+      <div class="item-secret">
+        {#if secret.data !== undefined}
+          <p>{secret.data}</p>
+        {:else}
+          {#each [...Array(6).keys()] as _}
+            <AsteriskCircleOutline size="0.9rem" />
+          {/each}
+        {/if}
+      </div>
+      <div class="buttons-container">
+        {#if secret.showButtons}
+          <div class="item-buttons" transition:fly={{ x: 300, duration: 300 }}>
+            <button
+              class="item-button"
+              on:click={async () => copyToClipboard(secret.label)}
+              ><ContentCopy /></button
+            >
+            {#if secret.data !== undefined}
+              <button
+                class="item-button"
+                on:click={() => hideData(secret.label)}><EyeOutline /></button
+              >
+            {:else}
+              <button
+                class="item-button"
+                on:click={async () => showData(secret.label)}
+                ><EyeOffOutline /></button
+              >
+            {/if}
+            <button
+              class="item-button"
+              on:click={async () => handleDelete(secret.label)}
+              ><TrashCanOutline /></button
+            >
+          </div>
+        {/if}
+      </div>
+    </div>
+  {/each}
 </div>
 
 <style>

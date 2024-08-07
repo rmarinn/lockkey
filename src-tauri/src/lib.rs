@@ -81,10 +81,10 @@ impl Session {
         Ok(())
     }
 
-    pub fn authenticate_user(&mut self, username: &str, passwd: &str) -> Result<()> {
+    pub fn authenticate_user(&mut self, usrname: &str, passwd: &str) -> Result<()> {
         let db = self.get_db_conn().expect("should get db connection");
 
-        let passwd_hash = match db.get_user_passwd_hash(&username)? {
+        let passwd_hash = match db.get_user_passwd_hash(&usrname)? {
             Some(hash) => hash,
             None => return Err(anyhow!("invalid username or password")),
         };
@@ -93,12 +93,12 @@ impl Session {
             return Err(anyhow!("invalid username or password"));
         }
 
-        let enc_key = match db.get_user_enc_salt(username)? {
+        let enc_key = match db.get_user_enc_salt(usrname)? {
             Some(salt) => Some(derive_encryption_key(&passwd, &salt)?),
             None => return Err(anyhow!("user has missing data")),
         };
 
-        let user_id = match db.get_user_id(&username)? {
+        let user_id = match db.get_user_id(&usrname)? {
             Some(id) => Some(id),
             None => return Err(anyhow!("user has missing data")),
         };
@@ -144,6 +144,12 @@ impl Session {
     pub fn delete_secret(&self, label: &str) -> Result<()> {
         let db = self.get_db_conn()?;
         db.delete_secret(&self.get_user_id()?, label)?;
+        Ok(())
+    }
+
+    pub fn logout(&mut self) -> Result<()> {
+        self.user_id = None;
+        self.key = None;
         Ok(())
     }
 

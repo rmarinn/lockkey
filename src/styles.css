@@ -50,3 +50,14 @@ input:focus {
 textarea {
   @apply rounded-md;
 }
+
+a {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 4px;
+}
+
+a:hover {
+  color: yellow;
+  text-decoration: none;
+}

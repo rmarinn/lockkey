@@ -68,6 +68,33 @@ fn is_authenticated(state: tauri::State<Arc<Mutex<Session>>>) -> bool {
     sess.is_authenticated()
 }
 
+#[tauri::command]
+fn create_user(usrname: String, passwd: String, state: tauri::State<Arc<Mutex<Session>>>) -> bool {
+    let sess = state.lock().expect("should get session");
+    match sess.create_user(&usrname, &passwd) {
+        Ok(()) => true,
+        _ => false,
+    }
+}
+
+#[tauri::command]
+fn login(usrname: String, passwd: String, state: tauri::State<Arc<Mutex<Session>>>) -> bool {
+    let mut sess = state.lock().expect("should get session");
+    match sess.authenticate_user(&usrname, &passwd) {
+        Ok(()) => true,
+        _ => false,
+    }
+}
+
+#[tauri::command]
+fn logout(state: tauri::State<Arc<Mutex<Session>>>) -> bool {
+    let mut sess = state.lock().expect("should get session");
+    match sess.logout() {
+        Ok(()) => true,
+        _ => false,
+    }
+}
+
 fn main() {
     let db_path = "./test.db";
 
@@ -81,7 +108,10 @@ fn main() {
             new_secret,
             get_secret,
             delete_secret,
-            is_authenticated
+            is_authenticated,
+            login,
+            logout,
+            create_user,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
