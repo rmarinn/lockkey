@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
   import ListItems from "./ListItems.svelte";
+  import type { Response } from "@utils";
 
   interface Secret {
     label: string;
@@ -14,9 +15,15 @@
 
   let secrets: Secret[] = [];
 
-  async function getLabels() {
-    secrets = await invoke<Secret[]>("get_labels");
-    secrets = secrets.map((label) => ({ ...label, showButtons: false }));
+  async function getSecrets() {
+    let resp = await invoke<Response<Secret[]>>("get_labels");
+
+    if (resp.success && resp.body !== undefined) {
+      secrets = resp.body.map((label) => ({
+        ...label,
+        showButtons: false,
+      }));
+    }
   }
 
   async function logOut() {
@@ -29,13 +36,14 @@
     secrets = event.detail.secrets;
   }
 
-  onMount(async () => {
-    await getLabels();
-  });
-
-  $: {
-    console.log(secrets.length);
+  async function handleDelete(event: CustomEvent) {
+    await invoke("delete_secret", { label: event.detail.label });
+    getSecrets();
   }
+
+  onMount(async () => {
+    await getSecrets();
+  });
 </script>
 
 {#if secrets.length === 0}
@@ -62,6 +70,10 @@
       <button on:click={logOut}>Logout</button>
       <button on:click={() => goto("/new_secret")}>New</button>
     </div>
-    <ListItems {secrets} on:listUpdated={handleListUpdated} />
+    <ListItems
+      {secrets}
+      on:listUpdated={handleListUpdated}
+      on:secretDeleted={handleDelete}
+    />
   </div>
 {/if}

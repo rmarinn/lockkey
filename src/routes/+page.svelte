@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
+  import type { Response } from "@utils";
   import { onMount } from "svelte";
   import { Circle2 } from "svelte-loading-spinners";
   import { fade } from "svelte/transition";
@@ -8,11 +9,12 @@
   let isAuthenticated: boolean = false;
 
   onMount(async () => {
-    isAuthenticated = await invoke<boolean>("is_authenticated");
-    if (isAuthenticated) {
+    let resp = await invoke<Response<boolean>>("is_authenticated");
+    isAuthenticated = resp.body ?? false;
+    if (resp.success && isAuthenticated) {
       goto("/secrets");
     } else {
-      goto("/new_account");
+      goto("/login");
     }
   });
 </script>

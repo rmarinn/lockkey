@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
   import { fade } from "svelte/transition";
   import { invoke } from "@tauri-apps/api/tauri";
+  import type { Response } from "@utils";
 
   const minUsrnameLen = 3;
   const maxUsrnameLen = 24;
@@ -11,33 +12,31 @@
   let usrname = "";
   let passwd = "";
   let confirm_passwd = "";
-  let success: boolean | undefined = undefined;
+  let err_msg: string | undefined = undefined;
+
+  $: invalidInput =
+    usrname.length < minUsrnameLen ||
+    usrname.length > maxUsrnameLen ||
+    passwd != confirm_passwd ||
+    passwd.length < minPasswdLen ||
+    passwd.length > maxPasswdLen;
 
   async function handleCreateAccount() {
-    success = undefined;
+    err_msg = undefined;
 
-    console.log(`func called`);
-    if (
-      usrname.length < minUsrnameLen ||
-      usrname.length > maxUsrnameLen ||
-      passwd != confirm_passwd ||
-      passwd.length < minPasswdLen ||
-      passwd.length > maxPasswdLen
-    ) {
-      return;
-    }
+    if (invalidInput) return;
 
-    success = await invoke<boolean>("create_user", {
+    let resp = await invoke<Response<string>>("new_user", {
       usrname: usrname,
       passwd: passwd,
     });
 
-    console.log(`success: ${success}`);
-
-    if (success === true) {
+    if (resp.success === true) {
       goto("/login");
     } else {
-      success = true;
+      err_msg =
+        resp.body ??
+        "An error has occured whilte trying to create a new account";
     }
   }
 </script>
@@ -46,10 +45,10 @@
   class="flex flex-col h-full w-full p-4"
   in:fade={{ duration: 150, delay: 175 }}
 >
-  {#if success === false}
-    <p class="italic text-center text-red-900 text-lg">
-      failed to create a new account
-    </p>
+  {#if err_msg !== undefined}
+    <div class="italic text-center text-red-900 text-lg">
+      {err_msg}
+    </div>
   {/if}
 
   <form
@@ -94,7 +93,9 @@
       <p class="italic text-sm text-center">passwords do not match</p>
     {/if}
     <div class="mt-4 mx-auto">
-      <button style="width: 200px;">Create account</button>
+      <button style="width: 200px;" disabled={invalidInput}
+        >Create account</button
+      >
     </div>
     <div class="text-center mt-8">
       <p>alread have an account?</p>

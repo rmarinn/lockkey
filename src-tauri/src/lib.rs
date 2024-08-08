@@ -9,14 +9,12 @@ use data::{Kind, RetrieveLabelsQueryResult};
 use crate::data::DbConn;
 use crate::encryption::*;
 
-#[allow(dead_code)]
 pub struct Session {
     user_id: Option<i64>,
     key: Option<[u8; 32]>,
     db_conn: Option<DbConn>,
 }
 
-#[allow(dead_code)]
 impl Session {
     pub fn new() -> Self {
         Session {

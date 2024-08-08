@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use rusqlite::{Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 pub struct DbConn {
     conn: Option<Connection>,
@@ -76,8 +76,8 @@ impl DbConn {
                 id          INTEGER PRIMARY KEY,
                 user_id     INTEGER,
                 kind        TEXT NOT NULL CHECK(kind IN ('text', 'password')),
-                label       TEXT UNIQUE NOT NULL CHECK(length(label) <= 32),
-                data        BLOB NOT NULL,
+                label       TEXT NOT NULL CHECK(length(label) >= 3 AND length(label) <= 32),
+                data        BLOB NOT NULL CHECK(length(data) > 3),
                 FOREIGN KEY(user_id) REFERENCES users(user_id)
             );
             CREATE INDEX idx_secrets_user_id ON secrets (user_id);
@@ -89,13 +89,27 @@ impl DbConn {
         Ok(())
     }
 
+    fn check_user_already_exists(&self, username: &str) -> Result<bool> {
+        let conn = self.get_conn()?;
+
+        let mut stmt = conn.prepare("SELECT COUNT(*) FROM users WHERE username = ?1;")?;
+        let count: i64 = stmt.query_row(params![username], |row| row.get(0))?;
+
+        Ok(count > 0)
+    }
+
     pub fn create_user(&self, username: &str, passwd_hash: &str, enc_salt: &[u8]) -> Result<()> {
         let conn = self.get_conn()?;
+
+        if self.check_user_already_exists(username)? {
+            return Err(anyhow!("The username, {username:?}, is already taken"));
+        }
 
         conn.execute(
             "INSERT INTO users (username, passwd_hash, enc_salt) VALUES (?1, ?2, ?3)",
             (username, passwd_hash, enc_salt),
         )?;
+
         Ok(())
     }
 
@@ -130,7 +144,7 @@ impl DbConn {
     pub fn get_user_enc_salt(&self, username: &str) -> Result<Option<Vec<u8>>> {
         let conn = self.get_conn()?;
 
-        let mut stmt = conn.prepare("SELECT enc_salt FROM users WHERE username = ?1")?;
+        let mut stmt = conn.prepare("SELECT enc_salt FROM users WHERE username = ?1;")?;
         let enc_salt: Option<Vec<u8>> = stmt.query_row([username], |row| row.get(0)).optional()?;
 
         Ok(enc_salt)
@@ -143,13 +157,27 @@ impl DbConn {
         Ok(())
     }
 
+    fn check_if_secret_label_exists(&self, user_id: i64, label: &str) -> Result<bool> {
+        let conn = self.get_conn()?;
+
+        let mut stmt =
+            conn.prepare("SELECT COUNT(*) FROM secrets WHERE user_id = ?1 AND label = ?2;")?;
+        let count: i64 = stmt.query_row(params![user_id, label], |row| row.get(0))?;
+
+        Ok(count > 0)
+    }
+
     pub fn store_secret(&self, user_id: i64, kind: Kind, label: &str, data: Vec<u8>) -> Result<()> {
         let conn = self.get_conn()?;
 
-        conn.execute(
-            "INSERT INTO secrets (user_id, kind, label, data) VALUES (?1, ?2, ?3, ?4)",
-            (user_id, kind.to_str(), label, data),
-        )?;
+        if self.check_if_secret_label_exists(user_id, label)? {
+            return Err(anyhow!("A secret with the same label already exists"));
+        }
+
+        let mut stmt = conn
+            .prepare("INSERT INTO secrets (user_id, kind, label, data) VALUES (?1, ?2, ?3, ?4)")?;
+        stmt.execute(params![user_id, kind.to_str(), label, data])?;
+
         Ok(())
     }
 

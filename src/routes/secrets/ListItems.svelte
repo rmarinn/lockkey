@@ -2,6 +2,7 @@
   import { invoke } from "@tauri-apps/api/tauri";
   import { fly, fade } from "svelte/transition";
   import { createEventDispatcher } from "svelte";
+  import { Pulse } from "svelte-loading-spinners";
   import ContentCopy from "svelte-material-icons/ContentCopy.svelte";
   import EyeOffOutline from "svelte-material-icons/EyeOffOutline.svelte";
   import EyeOutline from "svelte-material-icons/EyeOutline.svelte";
@@ -10,6 +11,7 @@
   import KeyVariant from "svelte-material-icons/KeyVariant.svelte";
   import AsteriskCircleOutline from "svelte-material-icons/AsteriskCircleOutline.svelte";
   import FileDocumentAlertOutline from "svelte-material-icons/FileDocumentAlertOutline.svelte";
+  import type { Response } from "@utils";
 
   interface Secret {
     label: string;
@@ -22,20 +24,20 @@
 
   const dispatch = createEventDispatcher();
 
-  async function getSecrets() {
-    secrets = await invoke<Secret[]>("get_labels");
-    secrets = secrets.map((label) => ({ ...label, showButtons: false }));
-    dispatch("listUpdated", { secrets: secrets });
-  }
-
   async function showData(label: string) {
     let secret = secrets.find((x) => x.label === label);
     if (secret) {
       secret.data = "decrypting...";
-      secret.data = await invoke<string | undefined>("get_secret", {
+      secrets = secrets;
+
+      let resp = await invoke<Response<string | undefined>>("get_secret", {
         label: label,
       });
-      secrets = secrets;
+
+      if (resp.success && resp.body !== undefined) {
+        secret.data = resp.body;
+        secrets = secrets;
+      }
     }
   }
 
@@ -53,8 +55,7 @@
   }
 
   async function handleDelete(label: string) {
-    await invoke("delete_secret", { label: label });
-    await getSecrets();
+    dispatch("secretDeleted", { label: label });
   }
 
   async function copyToClipboard(label: string) {
@@ -96,7 +97,7 @@
       out:fade|global={{ duration: 150 }}
       role="region"
     >
-      <div class="item-icon">
+      <div class="item-icon pr-2">
         {#if secret.kind === "password"}
           <KeyVariant />
         {:else if secret.kind === "text"}
@@ -109,11 +110,19 @@
         {secret.label}
       </div>
       <div class="item-secret">
-        {#if secret.data !== undefined}
-          <p>{secret.data}</p>
+        {#if secret.data === "decrypting..."}
+          <div in:fade={{ duration: 100, delay: 125 }}>
+            <Pulse size="1.5" unit="rem" color="#f6f6f6" duration="0.5s" />
+          </div>
+        {:else if secret.data !== undefined}
+          <div in:fade={{ duration: 100, delay: 125 }}>
+            <p>{secret.data}</p>
+          </div>
         {:else}
           {#each [...Array(6).keys()] as _}
-            <AsteriskCircleOutline size="0.9rem" />
+            <div transition:fade|global={{ duration: 100 }}>
+              <AsteriskCircleOutline size="0.9rem" />
+            </div>
           {/each}
         {/if}
       </div>
@@ -201,7 +210,7 @@
     align-items: center;
     position: absolute;
     top: 50%;
-    left: 2rem;
+    right: 2rem;
     transform: translateY(-50%);
   }
 
