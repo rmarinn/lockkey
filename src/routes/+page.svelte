@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import type { Response } from "@utils";
+  import type { Response } from "@types";
   import { onMount } from "svelte";
   import { Circle2 } from "svelte-loading-spinners";
   import { fade } from "svelte/transition";

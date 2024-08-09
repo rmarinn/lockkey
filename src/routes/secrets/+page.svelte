@@ -4,7 +4,7 @@
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
   import ListItems from "./ListItems.svelte";
-  import type { Response } from "@utils";
+  import type { Response } from "@types";
 
   interface Secret {
     label: string;

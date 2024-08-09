@@ -2,7 +2,7 @@
   import { fade } from "svelte/transition";
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import type { Response } from "@utils";
+  import type { Response } from "@types";
   import { Pulse } from "svelte-loading-spinners";
 
   let usrname: string = "";

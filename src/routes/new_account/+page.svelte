@@ -2,7 +2,7 @@
   import { goto } from "$app/navigation";
   import { fade } from "svelte/transition";
   import { invoke } from "@tauri-apps/api/tauri";
-  import type { Response } from "@utils";
+  import type { Response } from "@types";
 
   const minUsrnameLen = 3;
   const maxUsrnameLen = 24;

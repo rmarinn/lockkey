@@ -11,7 +11,8 @@
   import KeyVariant from "svelte-material-icons/KeyVariant.svelte";
   import AsteriskCircleOutline from "svelte-material-icons/AsteriskCircleOutline.svelte";
   import FileDocumentAlertOutline from "svelte-material-icons/FileDocumentAlertOutline.svelte";
-  import type { Response } from "@utils";
+  import type { Response } from "@types";
+  import { goto } from "$app/navigation";
 
   interface Secret {
     label: string;
@@ -27,16 +28,20 @@
   async function showData(label: string) {
     let secret = secrets.find((x) => x.label === label);
     if (secret) {
-      secret.data = "decrypting...";
-      secrets = secrets;
-
-      let resp = await invoke<Response<string | undefined>>("get_secret", {
-        label: label,
-      });
-
-      if (resp.success && resp.body !== undefined) {
-        secret.data = resp.body;
+      if (secret.kind === "password") {
+        secret.data = "decrypting...";
         secrets = secrets;
+
+        let resp = await invoke<Response<string | undefined>>("get_secret", {
+          label: label,
+        });
+
+        if (resp.success && resp.body !== undefined) {
+          secret.data = resp.body;
+          secrets = secrets;
+        }
+      } else if (secret.kind === "text") {
+        goto(`/view_secret?label=${secret.label}`);
       }
     }
   }

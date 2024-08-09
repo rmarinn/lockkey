@@ -3,7 +3,7 @@
   import { invoke } from "@tauri-apps/api/tauri";
   import { fly, fade } from "svelte/transition";
   import { Pulse } from "svelte-loading-spinners";
-  import type { Response } from "@utils";
+  import type { Response } from "@types";
 
   const INPUT_TYPES: string[] = ["password", "text"];
   const MIN_LABEL_LEN = 3;
@@ -12,7 +12,7 @@
   const MAX_PASSWD_LEN = 24;
   const MIN_TEXT_LEN = 1;
   const MAX_TEXT_LEN = 3000;
-  let selectedType: string = "password";
+  let selectedType: string = "text";
 
   let label: string = "";
   let data: string = "";
@@ -27,25 +27,39 @@
     data = "";
   }
 
+  $: labelIsNotValid =
+    label.length < MIN_LABEL_LEN || label.length > MAX_LABEL_LEN;
+  $: passwdIsNotValid =
+    selectedType === "password" &&
+    (data.length < MIN_PASSWD_LEN || data.length > MAX_PASSWD_LEN);
+  $: textIsNotValid =
+    selectedType === "text" &&
+    (data.length < MIN_TEXT_LEN || data.length > MAX_TEXT_LEN);
+
   async function handleSubmit() {
     submitting = true;
 
-    // label length check
-    if (label.length < MIN_LABEL_LEN || label.length > MAX_LABEL_LEN) return;
+    console.log("checking");
 
-    // password length check
-    if (
-      (selectedType === "password" && data.length < MIN_PASSWD_LEN) ||
-      data.length > MAX_PASSWD_LEN
-    )
+    if (labelIsNotValid) {
+      err_msg = "invalid label";
+      submitting = false;
       return;
+    }
 
-    // text length check
-    if (
-      (selectedType === "text" && data.length < MIN_TEXT_LEN) ||
-      data.length > MAX_TEXT_LEN
-    )
+    if (passwdIsNotValid) {
+      err_msg = "invalid password";
+      submitting = false;
       return;
+    }
+
+    if (textIsNotValid) {
+      err_msg = "invalid text";
+      submitting = false;
+      return;
+    }
+
+    console.log("saving");
 
     // try to save secret
     let resp = await invoke<Response<string>>("new_secret", {
@@ -53,6 +67,8 @@
       label: label,
       data: data,
     });
+
+    console.log(resp);
 
     if (resp.success) {
       goto("/");
@@ -99,7 +115,7 @@
       {/each}
     </div>
 
-    <div class="flex flex-col gap-3 overflow-hidden p-2">
+    <div class="flex flex-col gap-3 overflow-hidden p-2 flex-grow">
       <div class="flex flex-col gap-2 mx-auto">
         <input
           type="text"
@@ -151,8 +167,7 @@
           name="text-input"
           id="text-input"
           placeholder="place your text here..."
-          rows="5"
-          class="p-1 text-black"
+          class="p-1 text-black resize-none h-full flex-grow"
           bind:value={data}
           autocomplete="off"
           in:fly={{ x: 300, duration: 150, delay: 150 }}
@@ -163,7 +178,7 @@
       {/if}
     </div>
 
-    <div class="flex justify-center justify-self-end mt-auto">
+    <div class="flex justify-center justify-self-end">
       <button
         style="width: 200px; height: 2.8rem;"
         disabled={submitting}
