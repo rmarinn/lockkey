@@ -12,7 +12,7 @@
   const MAX_PASSWD_LEN = 24;
   const MIN_TEXT_LEN = 1;
   const MAX_TEXT_LEN = 3000;
-  let selectedType: string = "text";
+  let selectedType: string = "password";
 
   let label: string = "";
   let data: string = "";
@@ -121,7 +121,7 @@
           type="text"
           name="password-label-input"
           placeholder="label"
-          class="text-center p-1 text-black"
+          class="p-1"
           bind:value={label}
           autocomplete="off"
           aria-label="Label for the secret"
@@ -147,7 +147,7 @@
             name="password-input"
             id="password-input"
             placeholder="password"
-            class="text-center p-1 text-black"
+            class="p-1"
             bind:value={data}
             autocomplete="off"
             aria-label="Password"
@@ -167,7 +167,7 @@
           name="text-input"
           id="text-input"
           placeholder="place your text here..."
-          class="p-1 text-black resize-none h-full flex-grow"
+          class="p-1 resize-none h-full flex-grow"
           bind:value={data}
           autocomplete="off"
           in:fly={{ x: 300, duration: 150, delay: 150 }}

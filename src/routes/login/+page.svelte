@@ -54,19 +54,19 @@
     <input
       type="text"
       placeholder="username"
-      class="text-black text-center"
       bind:value={usrname}
+      aria-label="Username"
     />
     <input
       type="password"
       placeholder="password"
-      class="text-black text-center"
       bind:value={passwd}
+      aria-label="Password"
     />
     <button
       style="width: 200px; height: 2.8rem;"
       disabled={submitting || inputIsInvalid}
-      class="text-center mt-4"
+      class="text-center mt-4 mx-auto"
     >
       {#if submitting}
         <div
@@ -86,9 +86,11 @@
       {/if}
     </button>
 
-    <div class="text-center mt-8">
+    <div class="text-center mt-4">
       <p>Don't have an account?</p>
-      <a href="/new_account">create an account</a>
+      <a href="/new_account" aria-label="Create a new account"
+        >create an account</a
+      >
     </div>
   </form>
 

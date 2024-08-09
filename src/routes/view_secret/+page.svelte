@@ -58,7 +58,7 @@
     <div class="flex flex-col gap-3 overflow-hidden p-2">
       <textarea
         placeholder="loading..."
-        class="p-1 text-black resize-none"
+        class="p-1 resize-none"
         bind:value={data}
         autocomplete="off"
         in:fly={{ x: 300, duration: 150, delay: 150 }}

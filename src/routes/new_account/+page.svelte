@@ -60,10 +60,10 @@
     <input
       type="text"
       placeholder="username"
-      class="text-black text-center"
       bind:value={usrname}
       maxlength={maxUsrnameLen}
       spellcheck="false"
+      aria-label="Username"
     />
     {#if usrname !== "" && usrname.length < minUsrnameLen}
       <p class="italic text-sm">
@@ -73,9 +73,9 @@
     <input
       type="password"
       placeholder="password"
-      class="text-black text-center"
       bind:value={passwd}
       maxlength={maxPasswdLen}
+      aria-label="Password"
     />
     {#if passwd !== "" && passwd.length < minPasswdLen}
       <p class="italic text-sm">
@@ -85,9 +85,9 @@
     <input
       type="password"
       placeholder="confirm password"
-      class="text-black text-center"
       bind:value={confirm_passwd}
       maxlength={maxPasswdLen}
+      aria-label="Confirm password"
     />
     {#if confirm_passwd !== "" && passwd !== confirm_passwd}
       <p class="italic text-sm text-center">passwords do not match</p>
@@ -99,7 +99,7 @@
     </div>
     <div class="text-center mt-8">
       <p>alread have an account?</p>
-      <a href="/login">go to login</a>
+      <a href="/login" aria-label="Go to login">go to login</a>
     </div>
   </form>
 </div>

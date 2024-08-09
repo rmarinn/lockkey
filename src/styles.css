@@ -24,7 +24,7 @@
 /* styles for explicit focuis via keyboard-based navigation */
 :focus,
 :focus-visible:focus:not(:focus-visible) {
-  outline: solid 3px yellow;
+  outline: solid 3px #f6f6f6;
 }
 
 button {
@@ -44,15 +44,24 @@ button:focus {
 }
 
 input {
-  @apply rounded-md outline-none;
-}
-
-input:focus {
-  outline: solid 3px yellow;
+  @apply rounded-md outline-none bg-indigo-300 p-2 text-white text-center;
 }
 
 textarea {
-  @apply rounded-md;
+  @apply rounded-md outline-none bg-indigo-300 p-2 text-white text-start;
+}
+
+/* make reveal icon in passwords white */
+input::-ms-reveal {
+  filter: invert(100%);
+}
+
+input::placeholder, textarea::placeholder {
+  @apply text-zinc-500 italic;
+}
+
+input:focus {
+  outline: solid 3px #f6f6f6;
 }
 
 a {
