@@ -19,6 +19,7 @@ anyhow = "1.0.86"
 argon2 = "0.5.3"
 rand = "0.8.5"
 rusqlite = { version = "0.32.1", features = ["bundled"] }
+zeroize = "1.8.1"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

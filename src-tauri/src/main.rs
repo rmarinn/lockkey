@@ -105,7 +105,7 @@ fn is_authenticated(state: tauri::State<Arc<Mutex<Session>>>) -> Response {
 #[tauri::command]
 fn new_user(usrname: String, passwd: String, state: tauri::State<Arc<Mutex<Session>>>) -> Response {
     let sess = state.lock().expect("should get session");
-    match sess.create_user(&usrname, &passwd) {
+    match sess.create_user(&usrname, passwd) {
         Ok(()) => Response::ok().body(json!(format!("user `{:?}` created", usrname))),
         Err(e) => Response::err().body(json!(format!("Error creating a new account: {e:?}"))),
     }
@@ -114,7 +114,7 @@ fn new_user(usrname: String, passwd: String, state: tauri::State<Arc<Mutex<Sessi
 #[tauri::command]
 fn login(usrname: String, passwd: String, state: tauri::State<Arc<Mutex<Session>>>) -> Response {
     let mut sess = state.lock().expect("should get session");
-    match sess.authenticate_user(&usrname, &passwd) {
+    match sess.authenticate_user(&usrname, passwd) {
         Ok(()) => Response::ok().body(json!(format!("logged in as {:?}", usrname))),
         Err(e) => Response::err().body(json!(format!("Error loggin in: {e:?}"))),
     }

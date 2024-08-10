@@ -5,6 +5,7 @@ mod encryption;
 use anyhow::{anyhow, Result};
 use auth::{hash_password, verify_passwd};
 use data::{Kind, RetrieveLabelsQueryResult};
+use zeroize::Zeroize;
 
 use crate::data::DbConn;
 use crate::encryption::*;
@@ -49,15 +50,17 @@ impl Session {
         self.key.is_some()
     }
 
-    pub fn create_user(&self, username: &str, passwd: &str) -> Result<()> {
+    pub fn create_user(&self, username: &str, mut passwd: String) -> Result<()> {
         let db = self.get_db_conn().expect("should get db connection");
         let enc_salt = generate_salt();
         let passwd_hash = hash_password(&passwd)?;
         db.create_user(username, &passwd_hash, &enc_salt)?;
+
+        passwd.zeroize();
         Ok(())
     }
 
-    pub fn delete_user(&self, passwd: &str) -> Result<()> {
+    pub fn delete_user(&self, mut passwd: String) -> Result<()> {
         let db = self.get_db_conn().expect("should get db connection");
 
         let usrname = match db.get_username(&self.get_user_id()?)? {
@@ -76,10 +79,12 @@ impl Session {
 
         db.delete_user(&usrname)?;
 
+        passwd.zeroize();
+
         Ok(())
     }
 
-    pub fn authenticate_user(&mut self, usrname: &str, passwd: &str) -> Result<()> {
+    pub fn authenticate_user(&mut self, usrname: &str, mut passwd: String) -> Result<()> {
         let db = self.get_db_conn().expect("should get db connection");
 
         let passwd_hash = match db.get_user_passwd_hash(&usrname)? {
@@ -103,6 +108,8 @@ impl Session {
 
         self.key = enc_key;
         self.user_id = user_id;
+
+        passwd.zeroize();
 
         Ok(())
     }
@@ -147,14 +154,8 @@ impl Session {
 
     pub fn logout(&mut self) -> Result<()> {
         self.user_id = None;
+        self.key.zeroize();
         self.key = None;
-        Ok(())
-    }
-
-    pub fn close(mut self) -> Result<()> {
-        if let Some(db) = self.db_conn.take() {
-            db.close()?;
-        }
         Ok(())
     }
 }
@@ -164,6 +165,7 @@ impl Drop for Session {
         if let Some(db) = self.db_conn.take() {
             db.close().expect("should close db connection");
         }
+        self.key.zeroize();
     }
 }
 
@@ -219,15 +221,14 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let username = "test_user";
-        let passwd = "test_pass";
-        let label = "mypass";
-        let secret = "mysecret";
+        let username = String::from("test_user");
+        let passwd = String::from("test_pass");
+        let label = String::from("mypass");
+        let secret = String::from("mysecret");
 
         let mut sess = Session::new().connect_to_db(&db_path);
-        sess.create_user(&username, passwd).unwrap();
-        sess.authenticate_user(&username.to_string(), passwd)
-            .unwrap();
+        sess.create_user(&username, passwd.clone()).unwrap();
+        sess.authenticate_user(&username, passwd.clone()).unwrap();
 
         sess.store_secret("password", &label, secret.to_string())
             .expect("should insert secret into db");
@@ -242,15 +243,15 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let username = "test_user";
-        let passwd = "test_pass";
-        let label1 = "mypass";
-        let label2 = "mypass2";
-        let label3 = "mypass3";
-        let secret = "mysecret";
+        let username = String::from("test_user");
+        let passwd = String::from("test_pass");
+        let label1 = String::from("mypass");
+        let label2 = String::from("mypass2");
+        let label3 = String::from("mypass3");
+        let secret = String::from("mysecret");
 
         let mut sess = Session::new().connect_to_db(db_path);
-        sess.create_user(&username, passwd).unwrap();
+        sess.create_user(&username, passwd.clone()).unwrap();
         sess.authenticate_user(&username.to_string(), passwd)
             .unwrap();
 
@@ -287,13 +288,13 @@ mod test {
     #[test]
     #[should_panic]
     fn cannot_access_db_without_conn() {
-        let label1 = "mypass";
-        let secret = "mysecret";
-        let username = "test_user";
-        let passwd = "test_pass";
+        let label1 = String::from("mypass");
+        let secret = String::from("mysecret");
+        let username = String::from("test_user");
+        let passwd = String::from("test_pass");
 
         let mut sess = Session::new();
-        sess.create_user(&username, passwd).unwrap();
+        sess.create_user(&username, passwd.clone()).unwrap();
         sess.authenticate_user(&username.to_string(), passwd)
             .unwrap();
 
@@ -305,11 +306,11 @@ mod test {
     fn should_return_empty_on_nonexistent_labels() {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
-        let username = "test_user";
-        let passwd = "test_pass";
+        let username = String::from("test_user");
+        let passwd = String::from("test_pass");
 
         let mut sess = Session::new().connect_to_db(db_path);
-        sess.create_user(&username, passwd).unwrap();
+        sess.create_user(&username, passwd.clone()).unwrap();
         sess.authenticate_user(&username.to_string(), passwd)
             .unwrap();
 
@@ -322,13 +323,13 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let username = "test_user";
-        let passwd = "test_pass";
-        let label = "mypass";
-        let secret = "mysecret";
+        let username = String::from("test_user");
+        let passwd = String::from("test_pass");
+        let label = String::from("mypass");
+        let secret = String::from("mysecret");
 
         let mut sess = Session::new().connect_to_db(db_path);
-        sess.create_user(&username, passwd).unwrap();
+        sess.create_user(&username, passwd.clone()).unwrap();
         sess.authenticate_user(&username.to_string(), passwd)
             .unwrap();
 
@@ -356,13 +357,13 @@ mod test {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
 
-        let username = "user";
-        let passwd = "test_pass";
-        let label = "mypass";
-        let secret = "mysecret";
+        let username = String::from("user");
+        let passwd = String::from("test_pass");
+        let label = String::from("mypass");
+        let secret = String::from("mysecret");
 
         let mut sess = Session::new().connect_to_db(db_path);
-        sess.create_user(&username, passwd).unwrap();
+        sess.create_user(&username, passwd.clone()).unwrap();
         sess.authenticate_user(&username.to_string(), passwd)
             .unwrap();
 
