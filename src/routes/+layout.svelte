@@ -1,20 +1,20 @@
 <script lang="ts">
-  import { fade } from "svelte/transition";
-  import { cubicOut } from "svelte/easing";
+  import { onNavigate } from "$app/navigation";
 
-  interface Data {
-    url: string;
-  }
+  onNavigate((navigation) => {
+    // @ts-ignore
+    if (!document.startViewTransition) return;
 
-  export let data: Data;
+    return new Promise((resolve) => {
+      // @ts-ignore
+      document.startViewTransition(async () => {
+        resolve();
+        await navigation.complete;
+      });
+    });
+  });
 </script>
 
-{#key data.url}
-  <div
-    class="w-screen h-screen flex flex-col justify-start items-start p-8"
-    in:fade={{ duration: 150, delay: 175, easing: cubicOut }}
-    out:fade={{ duration: 150 }}
-  >
-    <slot />
-  </div>
-{/key}
+<div class="flex flex-col justify-start items-start p-8 min-h-lvh min-w-max">
+  <slot />
+</div>

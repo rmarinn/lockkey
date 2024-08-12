@@ -1,28 +1,36 @@
 <script lang="ts">
+  import Icon from "@iconify/svelte";
+
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
-  import ListItems from "./ListItems.svelte";
+
   import type { Response } from "@types";
+  import ListItem from "./ListItem.svelte";
+  import FilterButton from "./FilterButton.svelte";
 
   interface Secret {
     label: string;
     kind: string;
-    data?: string;
-    showButtons?: boolean;
   }
 
   let secrets: Secret[] = [];
+  let showPasswords: boolean = true;
+  let showText: boolean = true;
+
+  $: filteredSecrets = secrets.filter((s) => {
+    return (
+      (s.kind === "password" && showPasswords) ||
+      (s.kind === "text" && showText)
+    );
+  });
 
   async function getSecrets() {
     let resp = await invoke<Response<Secret[]>>("get_labels");
 
     if (resp.success && resp.body !== undefined) {
-      secrets = resp.body.map((label) => ({
-        ...label,
-        showButtons: false,
-      }));
+      secrets = resp.body;
     }
   }
 
@@ -32,13 +40,12 @@
     }
   }
 
-  function handleListUpdated(event: CustomEvent) {
-    secrets = event.detail.secrets;
-  }
-
-  async function handleDelete(event: CustomEvent) {
-    await invoke("delete_secret", { label: event.detail.label });
-    getSecrets();
+  async function onSecretDeleted(event: CustomEvent<{ label: string }>) {
+    const idx = secrets.findIndex((s) => s.label === event.detail.label);
+    if (idx !== -1) {
+      secrets.splice(idx, 1);
+      secrets = secrets;
+    }
   }
 
   onMount(async () => {
@@ -46,34 +53,61 @@
   });
 </script>
 
-{#if secrets.length === 0}
-  <div
-    class="grid grid-cols-1 grid-rows-3 auto-rows-fr p-4 h-full"
-    in:fade={{ duration: 150, delay: 175 }}
-    out:fade={{ duration: 150 }}
+<nav class="navbar">
+  <button class="nav-btn" on:click={() => goto("new_secret")}
+    ><Icon icon="mdi:plus-circle-outline" width="32px" height="32px" /></button
   >
-    <div class="row-span-1 flex justify-end">
-      <button class="mb-auto" on:click={logOut}>Logout</button>
-    </div>
-    <div class="row-span-1 flex flex-col gap-4 mx-auto justify-center">
-      <p class="text-3xl">no secrets yet</p>
-      <button on:click={() => goto("/new_secret")}>Create a new secret</button>
+  <button class="nav-btn" on:click={logOut} aria-label="Log out"
+    ><Icon icon="mdi:logout-variant" width="32px" height="32px" /></button
+  >
+</nav>
+
+<div class="flex flex-col flex-grow gap-[24px] w-full items-center">
+  <div class="flex justify-between min-w-[600px] items-center">
+    <h1 class="title text-xl">Secrets</h1>
+    <div class="flex gap-[24px]">
+      <FilterButton
+        toggled={showPasswords}
+        on:clicked={() => {
+          showPasswords = !showPasswords;
+        }}
+        ariaLabel="Toggle password filter"
+      >
+        <Icon icon="mdi:key-variant" width="24px" height="24px" />
+      </FilterButton>
+      <FilterButton
+        toggled={showText}
+        on:clicked={() => {
+          showText = !showText;
+        }}
+        ariaLabel="Toggle text secret filter"
+      >
+        <Icon icon="mdi:text-long" width="24px" height="24px" />
+      </FilterButton>
     </div>
   </div>
-{:else}
-  <div
-    class="flex flex-col w-full content-center p-4"
-    in:fade={{ duration: 150, delay: 175 }}
-    out:fade={{ duration: 150 }}
-  >
-    <div class="row-span-1 mb-auto flex justify-end w-full gap-2">
-      <button on:click={logOut}>Logout</button>
-      <button on:click={() => goto("/new_secret")}>New</button>
+
+  {#if secrets.length === 0}
+    <div
+      class="flex flex-col flex-grow w-full justify-center text-center pb-24"
+      in:fade={{ duration: 300 }}
+    >
+      <h1>You have no secrets yet.</h1>
     </div>
-    <ListItems
-      {secrets}
-      on:listUpdated={handleListUpdated}
-      on:secretDeleted={handleDelete}
-    />
-  </div>
-{/if}
+  {:else if filteredSecrets.length === 0}
+    <div
+      class="flex flex-col flex-grow w-full justify-center text-center pb-24"
+      in:fade={{ duration: 300 }}
+    >
+      <h1>All filters are off.</h1>
+    </div>
+  {:else}
+    {#each filteredSecrets as secret (secret.label)}
+      <ListItem
+        label={secret.label}
+        kind={secret.kind}
+        on:secretDeleted={onSecretDeleted}
+      />
+    {/each}
+  {/if}
+</div>

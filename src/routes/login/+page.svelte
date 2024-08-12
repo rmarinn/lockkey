@@ -52,11 +52,11 @@
     </div>
 
     <div class="flex flex-col gap-[12px]">
-      <button disabled={submitting || inputIsInvalid} type="submit">
+      <button class="btn" disabled={submitting || inputIsInvalid} type="submit">
         Log in
       </button>
       <button
-        class="btn-secondary"
+        class="btn btn-secondary"
         on:click|preventDefault={() => goto("/new_account")}
       >
         Create account

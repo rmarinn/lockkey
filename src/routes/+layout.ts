@@ -3,13 +3,3 @@
 // See: https://beta.tauri.app/start/frontend/sveltekit/ for more info
 export const prerender = true;
 export const ssr = false;
-
-interface LoadArgs {
-  url: URL;
-}
-
-export function load({ url }: LoadArgs) {
-  return {
-    url: url.pathname,
-  }
-}

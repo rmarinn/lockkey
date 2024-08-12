@@ -1,0 +1,175 @@
+<script lang="ts">
+  import Icon from "@iconify/svelte";
+  import { Pulse } from "svelte-loading-spinners";
+
+  import { goto } from "$app/navigation";
+  import { createEventDispatcher } from "svelte";
+  import { fly, fade } from "svelte/transition";
+  import { cubicIn, cubicOut } from "svelte/easing";
+
+  import type { Response } from "@types";
+  import { invoke } from "@tauri-apps/api/tauri";
+
+  const dispatch = createEventDispatcher();
+  export let label: string = "";
+  export let kind: string = "password";
+  let secretData: string | undefined;
+
+  $: isPasswdVisible = secretData !== undefined;
+
+  async function viewSecret() {
+    if (kind === "text") {
+      goto(`/view_secret?label=${label}`);
+      return;
+    }
+
+    if (isPasswdVisible) {
+      // TODO: make sure data here is actually cleared in memory
+      secretData = undefined;
+    } else {
+      // show loading
+      secretData = "decrypting password...";
+
+      // fetch data from the backend
+      let resp = await invoke<Response<string | undefined>>("get_secret", {
+        label: label,
+      });
+
+      // show data
+      if (resp.success && resp.body !== undefined) {
+        secretData = resp.body;
+      }
+    }
+  }
+
+  async function copyToClipboard() {
+    let data: string | undefined = secretData;
+    if (data === undefined || data === "") {
+      // fetch data from the backend
+      let resp = await invoke<Response<string | undefined>>("get_secret", {
+        label: label,
+      });
+
+      data = resp.body;
+    }
+
+    if (data !== undefined) {
+      navigator.clipboard
+        .writeText(data)
+        .then(() => {
+          console.log("Text copied to clipboard");
+        })
+        .catch((err) => {
+          console.log("Failed to copy text: ", err);
+        });
+    }
+
+    // TODO: make sure data is zeroed out in the memory
+    data = undefined;
+  }
+
+  async function deleteSecret() {
+    await invoke("delete_secret", { label: label });
+    dispatch("secretDeleted", { label: label });
+  }
+</script>
+
+<div
+  class="list-item"
+  in:fly|global={{ y: 300, duration: 300, easing: cubicOut }}
+  out:fade={{ duration: 300, easing: cubicOut }}
+>
+  <div class="list-label">
+    {#if kind === "password"}
+      <Icon icon="mdi:key-variant" width="24px" height="24px" />
+    {:else if kind === "text"}
+      <Icon icon="mdi:text-long" width="24px" height="24px" />
+    {:else}
+      <Icon icon="mdi:file-document-alert-outline" width="24px" height="24px" />
+    {/if}
+    <div>
+      {label}
+    </div>
+  </div>
+  <div class="flex-grow flex justify-end">
+    {#if secretData !== undefined}
+      {#if secretData === "decrypting password..."}
+        <div class="pr-[24px]" in:fade={{ duration: 300, easing: cubicOut }}>
+          <Pulse size="24" unit="px" duration="0.3s" color="#e9edf1" />
+        </div>
+      {:else}
+        <div
+          class="italic pr-[24px]"
+          in:fly={{ x: -200, duration: 300, easing: cubicOut }}
+          out:fade={{ duration: 300, easing: cubicOut }}
+        >
+          {secretData}
+        </div>
+      {/if}
+    {/if}
+  </div>
+  <div class="option-btns">
+    <button on:click={copyToClipboard}
+      ><Icon icon="mdi:content-copy" width="24px" height="24px" /></button
+    >
+    <button on:click={viewSecret}>
+      {#if isPasswdVisible}
+        <Icon icon="mdi:eye-outline" width="24px" height="24px" />
+      {:else}
+        <Icon icon="mdi:eye-off-outline" width="24px" height="24px" />
+      {/if}
+    </button>
+    <button on:click={() => goto("edit_secret")}
+      ><Icon
+        icon="mdi:square-edit-outline"
+        width="24px"
+        height="24px"
+      /></button
+    >
+    <button on:click={deleteSecret}
+      ><Icon icon="mdi:trash-outline" width="24px" height="24px" /></button
+    >
+  </div>
+</div>
+
+<style lang="scss">
+  $primary: #1d4a81;
+  $secondary: #3e89e5;
+
+  .list-item {
+    padding: 32px;
+    display: flex;
+    min-width: 600px;
+    justify-content: space-between;
+    align-items: center;
+    flex-direction: row;
+    border-radius: 30px;
+    box-shadow: 2px 2px 4px 2px rgba($primary, 0.3);
+  }
+
+  .list-label {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .option-btns {
+    display: flex;
+    justify-content: right;
+    gap: 24px;
+    min-width: 170px;
+
+    & > button {
+      filter: drop-shadow(1px 1px 1px rgba($primary, 0.6));
+      transition:
+        transform 0.2s ease-out,
+        filter 0.3s ease-out;
+
+      &:hover {
+        filter: drop-shadow(2px 2px 4px $primary);
+        transform: translateY(-2px);
+        color: $primary;
+      }
+    }
+  }
+</style>
