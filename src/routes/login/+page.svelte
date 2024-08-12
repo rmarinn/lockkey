@@ -1,16 +1,12 @@
 <script lang="ts">
-  import { fade } from "svelte/transition";
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
   import type { Response } from "@types";
-  import { Pulse } from "svelte-loading-spinners";
 
   let usrname: string = "";
   let passwd: string = "";
   let err_msg: string | undefined = undefined;
   let submitting: boolean = false;
-  let loadingBtnHovered = false;
-  $: loadingBtnColor = loadingBtnHovered ? "#6875F5" : "#F6F6F6";
 
   $: inputIsInvalid = usrname.length === 0 || passwd.length === 0;
 
@@ -37,62 +33,34 @@
   }
 </script>
 
-<div
-  class="flex flex-col h-full w-full p-4"
-  in:fade={{ duration: 150, delay: 175 }}
->
-  {#if err_msg !== undefined}
-    <div class="italic text-lg text-center text-red-900">{err_msg}</div>
-  {/if}
+<div class="flex flex-col justify-center items-center m-auto">
+  <form class="card" on:submit|preventDefault={handleLogin}>
+    <h1 class="app-title text-3xl text-center">Lockkey</h1>
+    <div class="flex flex-col gap-2">
+      <input
+        type="text"
+        placeholder="username"
+        bind:value={usrname}
+        aria-label="Username"
+      />
+      <input
+        type="password"
+        placeholder="password"
+        bind:value={passwd}
+        aria-label="Password"
+      />
+    </div>
 
-  <form
-    on:submit|preventDefault={handleLogin}
-    class="flex flex-col justify-center gap-4 h-full mx-auto"
-  >
-    <h1 class="text-3xl text-center mb-4">Lockkey</h1>
-
-    <input
-      type="text"
-      placeholder="username"
-      bind:value={usrname}
-      aria-label="Username"
-    />
-    <input
-      type="password"
-      placeholder="password"
-      bind:value={passwd}
-      aria-label="Password"
-    />
-    <button
-      style="width: 200px; height: 2.8rem;"
-      disabled={submitting || inputIsInvalid}
-      class="text-center mt-4 mx-auto"
-    >
-      {#if submitting}
-        <div
-          class="w-full h-full flex justify-center items-center"
-          role="none"
-          on:mouseenter={() => {
-            loadingBtnHovered = true;
-          }}
-          on:mouseleave={() => {
-            loadingBtnHovered = false;
-          }}
-        >
-          <Pulse size="1.5" unit="rem" color={loadingBtnColor} />
-        </div>
-      {:else}
+    <div class="flex flex-col gap-[12px]">
+      <button disabled={submitting || inputIsInvalid} type="submit">
         Log in
-      {/if}
-    </button>
-
-    <div class="text-center mt-4">
-      <p>Don't have an account?</p>
-      <a href="/new_account" aria-label="Create a new account"
-        >create an account</a
+      </button>
+      <button
+        class="btn-secondary"
+        on:click|preventDefault={() => goto("/new_account")}
       >
+        Create account
+      </button>
     </div>
   </form>
-
-  <div></div>
 </div>

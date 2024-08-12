@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "AppName";
+  src: url("./assets/fonts/Righteous/Righteous-Regular.ttf")
+    format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Highlight";
+  src: url("./assets/fonts/Inter/Inter-VariableFont_opsz,wght.ttf")
+    format("truetype");
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Normal";
+  src: url("./assets/fonts/Rubik/Rubik-VariableFont_wght.ttf")
+    format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Italic";
+  src: url("./assets/fonts/Rubik/Rubik-Italic-VariableFont_wght.ttf")
+    format("truetype");
+  font-weight: 300;
+  font-style: italic;
+}
+
+/* remove focus styles for non-keyboard focus */
+:focus:not(:focus-visible) {
+  outline: 0;
+  box-shadow: none;
+}
+
+$text-light: #e9edf1;
+$text-dark: #090e15;
+$background: #90b1da;
+$primary: #1d4a81;
+$secondary: #3e89e5;
+
+/* styles for explicit focuis via keyboard-based navigation */
+:focus,
+:focus-visible:focus:not(:focus-visible) {
+  outline: solid 2px $secondary;
+}
+
+:root {
+  margin: 0;
+  padding: 0;
+  font-family: "Normal", sans-serif;
+  color: $text-light;
+  background: linear-gradient(135deg, $background, darken($background, 10%));
+  overflow: hidden;
+
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app-title {
+  font-family: "AppName", sans-serif;
+  letter-spacing: 0.1em;
+}
+
+.h1 {
+  font-family: "Highlight", sans-serif;
+}
+
+.italic {
+  font-family: "Italic", sans-serif;
+}
+
+input {
+  background-color: $background;
+  color: $text-light;
+  box-shadow: inset 1px 1px 4px 2px rgba($primary, 0.2);
+  border-radius: 12px;
+  padding: 8px;
+  text-align: center;
+  &::placeholder {
+    color: $text-light;
+    font-family: "Italic";
+  }
+}
+
+$primary-30: rgba(1, 1, 1, 0.3);
+$primary-rgba: rgba(52, 152, 219, 0.3);
+
+.card {
+  padding: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  border-radius: 30px;
+  box-shadow: 2px 2px 4px 2px rgba($primary, 0.3);
+}
+
+button {
+  background: $primary;
+  border-radius: 8px;
+  padding: 8px;
+  font-family: "Highlight";
+  font-weight: 800;
+  filter: drop-shadow(1px 1px 1px rgba($primary, 0.9));
+  transition: transform 0.2s ease-out, filter 0.3s ease-out;
+
+  &:hover {
+    filter: drop-shadow(4px 4px 2px rgba($primary, 0.2));
+    transform: translateY(-4px);
+  }
+
+  &.btn-secondary {
+    background: transparent;
+    color: $primary;
+    border: 2px solid $primary;
+  }
+}
+

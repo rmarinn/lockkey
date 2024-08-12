@@ -41,65 +41,40 @@
   }
 </script>
 
-<div
-  class="flex flex-col h-full w-full p-4"
-  in:fade={{ duration: 150, delay: 175 }}
->
-  {#if err_msg !== undefined}
-    <div class="italic text-center text-red-900 text-lg">
-      {err_msg}
+<div class="flex flex-col justify-center items-center m-auto">
+  <form on:submit|preventDefault={handleCreateAccount} class="card">
+    <h1 class="text-3xl text-center">Create account</h1>
+
+    <div class="flex flex-col gap-[12px]">
+      <input
+        type="text"
+        placeholder="username"
+        bind:value={usrname}
+        maxlength={maxUsrnameLen}
+        spellcheck="false"
+        aria-label="Username"
+      />
+      <input
+        type="password"
+        placeholder="password"
+        bind:value={passwd}
+        maxlength={maxPasswdLen}
+        aria-label="Password"
+      />
+      <input
+        type="password"
+        placeholder="confirm password"
+        bind:value={confirm_passwd}
+        maxlength={maxPasswdLen}
+        aria-label="Confirm password"
+      />
     </div>
-  {/if}
-
-  <form
-    on:submit|preventDefault={handleCreateAccount}
-    class="flex flex-col justify-center gap-4 h-full mx-auto"
-  >
-    <h1 class="text-3xl text-center mb-4">Create a new account</h1>
-
-    <input
-      type="text"
-      placeholder="username"
-      bind:value={usrname}
-      maxlength={maxUsrnameLen}
-      spellcheck="false"
-      aria-label="Username"
-    />
-    {#if usrname !== "" && usrname.length < minUsrnameLen}
-      <p class="italic text-sm">
-        username must be at least {minUsrnameLen} characters long
-      </p>
-    {/if}
-    <input
-      type="password"
-      placeholder="password"
-      bind:value={passwd}
-      maxlength={maxPasswdLen}
-      aria-label="Password"
-    />
-    {#if passwd !== "" && passwd.length < minPasswdLen}
-      <p class="italic text-sm">
-        password must be at least {minPasswdLen} characters long
-      </p>
-    {/if}
-    <input
-      type="password"
-      placeholder="confirm password"
-      bind:value={confirm_passwd}
-      maxlength={maxPasswdLen}
-      aria-label="Confirm password"
-    />
-    {#if confirm_passwd !== "" && passwd !== confirm_passwd}
-      <p class="italic text-sm text-center">passwords do not match</p>
-    {/if}
-    <div class="mt-4 mx-auto">
-      <button style="width: 200px;" disabled={invalidInput}
-        >Create account</button
+    <div class="flex flex-col gap-[10px] m-auto">
+      <button disabled={invalidInput} type="submit">Create account</button>
+      <button
+        class="btn-secondary"
+        on:click|preventDefault={() => goto("/login")}>Back to Login</button
       >
-    </div>
-    <div class="text-center mt-8">
-      <p>alread have an account?</p>
-      <a href="/login" aria-label="Go to login">go to login</a>
     </div>
   </form>
 </div>
