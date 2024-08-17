@@ -51,7 +51,7 @@
 <aside>
   <button
     class="nav-btn"
-    on:click={() => goto("/new_secret")}
+    on:click={() => goto("/edit_secret")}
     aria-label="Create a new secret"
     ><Icon icon="mdi:plus-circle-outline" width="2rem" height="2rem" /></button
   >

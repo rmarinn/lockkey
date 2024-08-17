@@ -5,9 +5,9 @@
   import { goto } from "$app/navigation";
   import { createEventDispatcher } from "svelte";
   import { fly, fade } from "svelte/transition";
-  import { cubicIn, cubicOut } from "svelte/easing";
+  import { cubicOut } from "svelte/easing";
 
-  import type { Response } from "@types";
+  import type { Response, Secret } from "@types";
   import { invoke } from "@tauri-apps/api/tauri";
 
   const dispatch = createEventDispatcher();
@@ -31,13 +31,13 @@
       secretData = "decrypting password...";
 
       // fetch data from the backend
-      let resp = await invoke<Response<string | undefined>>("get_secret", {
+      let resp = await invoke<Response<Secret | undefined>>("get_secret", {
         label: label,
       });
 
       // show data
       if (resp.success && resp.body !== undefined) {
-        secretData = resp.body;
+        secretData = resp.body?.data || "";
       }
     }
   }
@@ -119,7 +119,7 @@
         <Icon icon="mdi:eye-off-outline" width="24px" height="24px" />
       {/if}
     </button>
-    <button on:click={() => goto("edit_secret")}
+    <button on:click={() => goto(`/edit_secret?label=${label}`)}
       ><Icon
         icon="mdi:square-edit-outline"
         width="24px"

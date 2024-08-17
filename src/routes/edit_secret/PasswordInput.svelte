@@ -118,7 +118,10 @@
     <div></div>
 
     <div class="flex justify-end items-center pr-2">
-      <button class="input-btn" on:click={togglePasswdVisibility}>
+      <button
+        class="input-btn"
+        on:click|preventDefault={togglePasswdVisibility}
+      >
         {#if showPasswd}
           <Icon icon="mdi:eye-outline" />
         {:else}
@@ -140,12 +143,12 @@
     />
 
     <div class="flex justify-self-start gap-4 pl-2">
-      <button class="input-btn" on:click={copyToClipboard}>
+      <button class="input-btn" on:click|preventDefault={copyToClipboard}>
         <Icon icon="mdi:content-copy" />
       </button>
       <button
         class="passwd-opt"
-        on:click={() => {
+        on:click|preventDefault={() => {
           passwd = generateRandomPasswd();
         }}
       >
@@ -153,7 +156,7 @@
       </button>
       <button
         class="passwd-opt"
-        on:click={() => {
+        on:click|preventDefault={() => {
           showPasswdSettings = !showPasswdSettings;
         }}
       >

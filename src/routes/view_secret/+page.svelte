@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { fly, fade } from "svelte/transition";
   import { page } from "$app/stores";
-  import type { Response } from "@types";
+  import type { Response, Secret } from "@types";
   import { invoke } from "@tauri-apps/api/tauri";
   import Icon from "@iconify/svelte";
   import { logOut } from "@utils";
@@ -17,13 +17,13 @@
     err_msg = undefined;
     data = undefined;
 
-    let resp = await invoke<Response<string | undefined>>("get_secret", {
+    let resp = await invoke<Response<Secret | undefined>>("get_secret", {
       label: label,
     });
     if (resp.success) {
-      data = resp.body;
+      data = resp.body?.data;
     } else {
-      err_msg = resp.body;
+      err_msg = "error retrieving the secret";
     }
   }
 

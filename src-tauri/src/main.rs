@@ -55,6 +55,16 @@ fn new_secret(
 }
 
 #[tauri::command]
+fn edit_secret(label: String, data: String, state: tauri::State<Arc<Mutex<Session>>>) -> Response {
+    let sess = state.lock().expect("should get session");
+
+    match sess.edit_secret(&label, data) {
+        Ok(()) => Response::ok().body(json!("secret edited".to_string())),
+        Err(e) => Response::err().body(json!(format!("Error creating secret: {e:?}"))),
+    }
+}
+
+#[tauri::command]
 fn delete_secret(label: String, state: tauri::State<Arc<Mutex<Session>>>) -> Response {
     let sess = state.lock().expect("should get session");
 
@@ -141,6 +151,7 @@ fn main() {
             get_labels,
             new_secret,
             get_secret,
+            edit_secret,
             delete_secret,
             is_authenticated,
             login,

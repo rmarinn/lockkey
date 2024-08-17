@@ -16,6 +16,13 @@ pub struct Session {
     db_conn: Option<DbConn>,
 }
 
+#[derive(serde::Serialize, Debug, PartialEq)]
+pub struct Secret {
+    label: String,
+    data: String,
+    kind: String,
+}
+
 impl Session {
     pub fn new() -> Self {
         Session {
@@ -128,16 +135,30 @@ impl Session {
         Ok(())
     }
 
-    pub fn retrieve_secret(&self, label: &str) -> Result<Option<String>> {
+    pub fn edit_secret(&self, label: &str, data: String) -> Result<()> {
         let key = self.get_key()?;
         let db = self.get_db_conn()?;
 
-        let encrypted_secret = match db.get_secret(self.get_user_id()?, label)? {
+        let encrypted = encrypt_using_key(key, &data)?;
+        db.edit_secret(self.get_user_id()?, label, encrypted)?;
+        Ok(())
+    }
+
+    pub fn retrieve_secret(&self, label: &str) -> Result<Option<Secret>> {
+        let key = self.get_key()?;
+        let db = self.get_db_conn()?;
+
+        let (kind, encrypted_data) = match db.get_secret(self.get_user_id()?, label)? {
             Some(d) => d,
             None => return Ok(None),
         };
 
-        let secret = decrypt_using_key(key, encrypted_secret)?;
+        let decrypted_data = decrypt_using_key(key, encrypted_data)?;
+        let secret = Secret {
+            label: label.into(),
+            kind,
+            data: decrypted_data,
+        };
         Ok(Some(secret))
     }
 
@@ -235,7 +256,14 @@ mod test {
 
         let retrieved_secret = sess.retrieve_secret(&label).unwrap();
 
-        assert_eq!(Some(secret.to_string()), retrieved_secret);
+        assert_eq!(
+            Some(Secret {
+                label,
+                kind: "password".to_string(),
+                data: secret
+            }),
+            retrieved_secret
+        );
     }
 
     #[test]
@@ -340,7 +368,15 @@ mod test {
         let retrieved_secret = sess
             .retrieve_secret(&label)
             .expect("should retrieve secret from db");
-        assert_eq!(retrieved_secret, Some(secret.to_string()));
+
+        assert_eq!(
+            retrieved_secret,
+            Some(Secret {
+                label: label.clone(),
+                kind: "password".to_string(),
+                data: secret
+            })
+        );
 
         // delete data
         sess.delete_secret(&label).expect("should delete data");
@@ -377,9 +413,16 @@ mod test {
 
         // acquire lock then retreive
         let s = sess.lock().expect("should acquire lock");
-        let retrieved_passwd = s.retrieve_secret(&label).expect("should retrieve password");
+        let retrieved_secret = s.retrieve_secret(&label).expect("should retrieve password");
         drop(s);
 
-        assert_eq!(retrieved_passwd, Some(secret.to_string()));
+        assert_eq!(
+            retrieved_secret,
+            Some(Secret {
+                label: label,
+                kind: "password".to_string(),
+                data: secret
+            })
+        );
     }
 }
