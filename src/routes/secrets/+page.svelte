@@ -7,6 +7,7 @@
   import { fade } from "svelte/transition";
 
   import type { Response } from "@types";
+  import { logOut } from "@utils";
   import ListItem from "./ListItem.svelte";
   import FilterButton from "./FilterButton.svelte";
 
@@ -34,12 +35,6 @@
     }
   }
 
-  async function logOut() {
-    if (await invoke<boolean>("logout")) {
-      goto("/login");
-    }
-  }
-
   async function onSecretDeleted(event: CustomEvent<{ label: string }>) {
     const idx = secrets.findIndex((s) => s.label === event.detail.label);
     if (idx !== -1) {
@@ -54,15 +49,25 @@
 </script>
 
 <nav class="navbar">
-  <button class="nav-btn" on:click={() => goto("new_secret")}
-    ><Icon icon="mdi:plus-circle-outline" width="32px" height="32px" /></button
-  >
+  <div class="flex-grow">
+    <button
+      class="nav-btn"
+      on:click={() => goto("/new_secret")}
+      aria-label="Create a new secret"
+      ><Icon
+        icon="mdi:plus-circle-outline"
+        width="32px"
+        height="32px"
+      /></button
+    >
+  </div>
+
   <button class="nav-btn" on:click={logOut} aria-label="Log out"
     ><Icon icon="mdi:logout-variant" width="32px" height="32px" /></button
   >
 </nav>
 
-<div class="flex flex-col flex-grow gap-[24px] w-full items-center">
+<main class="flex flex-col flex-grow gap-[24px] w-full items-center pl-[44px]">
   <div class="flex justify-between min-w-[600px] items-center">
     <h1 class="title text-xl">Secrets</h1>
     <div class="flex gap-[24px]">
@@ -110,4 +115,4 @@
       />
     {/each}
   {/if}
-</div>
+</main>

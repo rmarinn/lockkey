@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onNavigate } from "$app/navigation";
+  import "../assets/scss/styles.scss";
 
   onNavigate((navigation) => {
     // @ts-ignore

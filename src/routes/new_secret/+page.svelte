@@ -1,25 +1,25 @@
 <script lang="ts">
+  import { logOut } from "@utils";
+  import Icon from "@iconify/svelte";
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import { fly, fade } from "svelte/transition";
-  import { Pulse } from "svelte-loading-spinners";
   import type { Response } from "@types";
+  import PasswordInput from "./PasswordInput.svelte";
+  import TypeSelection from "./TypeSelection.svelte";
+  import TextInput from "./TextInput.svelte";
 
-  const INPUT_TYPES: string[] = ["password", "text"];
   const MIN_LABEL_LEN = 3;
   const MAX_LABEL_LEN = 32;
   const MIN_PASSWD_LEN = 6;
   const MAX_PASSWD_LEN = 24;
   const MIN_TEXT_LEN = 1;
   const MAX_TEXT_LEN = 3000;
-  let selectedType: string = "password";
+  let selectedType: string = "text";
 
   let label: string = "";
   let data: string = "";
   let submitting: boolean = false;
-  let loadingBtnHovered = false;
   let err_msg: string | undefined = undefined;
-  $: loadingBtnColor = loadingBtnHovered ? "#6875F5" : "#F6F6F6";
 
   // clears data when selectedType changes
   $: {
@@ -39,8 +39,6 @@
   async function handleSubmit() {
     submitting = true;
 
-    console.log("checking");
-
     if (labelIsNotValid) {
       err_msg = "invalid label";
       submitting = false;
@@ -59,16 +57,12 @@
       return;
     }
 
-    console.log("saving");
-
     // try to save secret
     let resp = await invoke<Response<string>>("new_secret", {
       kind: selectedType,
       label: label,
       data: data,
     });
-
-    console.log(resp);
 
     if (resp.success) {
       goto("/");
@@ -79,130 +73,111 @@
 
     submitting = false;
   }
+
+  interface PasswordConfig {
+    length: number;
+    useLetters: boolean;
+    useUppercase: boolean;
+    useNumbers: boolean;
+    useSymbols: boolean;
+    excludedChars: string;
+  }
+
+  let passwdCfg: PasswordConfig = {
+    length: 12,
+    useLetters: true,
+    useUppercase: true,
+    useNumbers: true,
+    useSymbols: true,
+    excludedChars: "",
+  };
+
+  function shuffleString(str: string): string {
+    const array = str.split("");
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]]; // Swap elements
+    }
+    return array.join("");
+  }
+
+  function generateRandomPasswd(): string {
+    const lowercaseLetters = "abcdefghijklmnopqrstuvwxyz";
+    const uppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const numbers = "0123456789";
+    const symbols = "!@#$%^&*()-_=+[]{}|;:'\",.<>?/\\~`";
+
+    let charSet = "";
+    if (passwdCfg.useLetters) charSet += lowercaseLetters;
+    if (passwdCfg.useUppercase) charSet += uppercaseLetters;
+    if (passwdCfg.useNumbers) charSet += numbers;
+    if (passwdCfg.useSymbols) charSet += symbols;
+    if (charSet === "") return "";
+
+    const excludedChars = new Set(passwdCfg.excludedChars);
+    charSet = charSet
+      .split("")
+      .filter((char) => !excludedChars.has(char))
+      .join("");
+    charSet = shuffleString(charSet);
+
+    let passwd = "";
+
+    for (let i = 0; i < passwdCfg.length; i++) {
+      passwd += charSet[Math.floor(Math.random() * charSet.length)];
+    }
+
+    return passwd;
+  }
 </script>
 
-<div
-  class="flex flex-col h-full w-full p-4"
-  in:fade={{ duration: 150, delay: 175 }}
+<nav class="navbar">
+  <div class="flex-grow">
+    <button class="nav-btn" on:click={() => goto("/secrets")}
+      ><Icon icon="mdi:arrow-back" width="32px" height="32px" /></button
+    >
+  </div>
+  <button class="nav-btn" on:click={logOut} aria-label="Log out"
+    ><Icon icon="mdi:logout-variant" width="32px" height="32px" /></button
+  >
+</nav>
+
+<form
+  on:submit|preventDefault={handleSubmit}
+  class="flex flex-col content-center gap-4 flex-grow w-full p-0 pl-[44px]"
 >
-  <div class="flex justify-end">
-    <button on:click={() => goto("/")}>Back</button>
+  <div class="flex justify-between items-center gap-[24px]">
+    <h1 class="text-xl">New Secret</h1>
+
+    <TypeSelection bind:selectedType />
+
+    <button class="btn btn-primary flex gap-4 item-center">
+      <Icon icon="mdi:content-save-outline" class="my-auto" />
+      Save
+    </button>
   </div>
 
-  {#if err_msg !== undefined}
-    <div class="italic text-lg text-red-900 text-center">{err_msg}</div>
-  {/if}
-
-  <form
-    on:submit|preventDefault={handleSubmit}
-    class="flex flex-col content-center gap-4 h-full"
-  >
-    <h1 class="text-3xl text-center">New Secret</h1>
-    <div class="flex gap-3 mx-auto">
-      <label for="input-type" class="mr-2">Type:</label>
-
-      {#each INPUT_TYPES as type}
-        <div>
-          <input
-            type="radio"
-            name="input-type"
-            id={"input-type-" + type}
-            value={type}
-            bind:group={selectedType}
-          />
-          {type}
-        </div>
-      {/each}
-    </div>
-
-    <div class="flex flex-col gap-3 overflow-hidden p-2 flex-grow">
-      <div class="flex flex-col gap-2 mx-auto">
-        <input
-          type="text"
-          name="password-label-input"
-          placeholder="label"
-          class="p-1"
-          bind:value={label}
-          autocomplete="off"
-          aria-label="Label for the secret"
-        />
-        {#if label.length > 0 && label.length < MIN_LABEL_LEN}
-          <div class="italic text-sm">
-            the label must be at least {MIN_LABEL_LEN} characters long
-          </div>
-        {:else if label.length > MAX_LABEL_LEN}
-          <div class="italic text-sm">
-            the label cannot be longer than {MAX_LABEL_LEN} characters long
-          </div>
-        {/if}
-      </div>
-      {#if selectedType === "password"}
-        <div
-          class="flex flex-col items-center mx-auto gap-2"
-          in:fly={{ x: 300, duration: 150, delay: 150 }}
-          out:fly={{ x: -300, duration: 150 }}
-        >
-          <input
-            type="password"
-            name="password-input"
-            id="password-input"
-            placeholder="password"
-            class="p-1"
-            bind:value={data}
-            autocomplete="off"
-            aria-label="Password"
-          />
-          {#if data.length > 0 && data.length < MIN_PASSWD_LEN}
-            <div class="italic text-sm">
-              the password must be at least {MIN_PASSWD_LEN} characters long
-            </div>
-          {:else if data.length > MAX_PASSWD_LEN}
-            <div class="italic text-sm">
-              the password cannot be longer than {MAX_PASSWD_LEN} characters long
-            </div>
-          {/if}
-        </div>
-      {:else if selectedType === "text"}
-        <textarea
-          name="text-input"
-          id="text-input"
-          placeholder="place your text here..."
-          class="p-1 resize-none h-full flex-grow"
-          bind:value={data}
-          autocomplete="off"
-          in:fly={{ x: 300, duration: 150, delay: 150 }}
-          out:fly={{ x: -300, duration: 150 }}
-        ></textarea>
-      {:else}
-        <p>Unknown type</p>
-      {/if}
-    </div>
-
-    <div class="flex justify-center justify-self-end">
-      <button
-        style="width: 200px; height: 2.8rem;"
-        disabled={submitting}
-        class="text-center"
-      >
-        {#if submitting}
-          <div
-            class="w-full h-full flex justify-center items-center"
-            role="none"
-            on:mouseenter={() => {
-              loadingBtnHovered = true;
-            }}
-            on:mouseleave={() => {
-              loadingBtnHovered = false;
-            }}
-          >
-            <Pulse size="1.5" unit="rem" color={loadingBtnColor} />
-          </div>
-        {:else}
-          Save
-        {/if}
-      </button>
-    </div>
-  </form>
-
-  <div></div>
-</div>
+  <div class="flex flex-col flex-grow">
+    {#if selectedType === "password"}
+      <PasswordInput
+        bind:label
+        bind:passwd={data}
+        minLblLen={MIN_LABEL_LEN}
+        maxLblLen={MAX_LABEL_LEN}
+        minPasswdLen={MIN_PASSWD_LEN}
+        maxPasswdLen={MAX_PASSWD_LEN}
+      />
+    {:else if selectedType === "text"}
+      <TextInput
+        bind:label
+        bind:text={data}
+        minLblLen={MIN_LABEL_LEN}
+        maxLblLen={MAX_LABEL_LEN}
+        minTextLen={MIN_TEXT_LEN}
+        maxTextLen={MAX_TEXT_LEN}
+      />
+    {:else}
+      <p>Unknown type</p>
+    {/if}
+  </div>
+</form>
