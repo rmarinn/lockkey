@@ -5,13 +5,13 @@
   import { page } from "$app/stores";
   import type { Response } from "@types";
   import { invoke } from "@tauri-apps/api/tauri";
-  import { adjustTextAreaHeight } from "@utils";
+  import Icon from "@iconify/svelte";
+  import { logOut } from "@utils";
+  import { cubicOut } from "svelte/easing";
 
   let label: string | undefined;
   let data: string | undefined;
   let err_msg: string | undefined;
-
-  let textArea: HTMLTextAreaElement | null = null;
 
   async function fetchData(label: string) {
     err_msg = undefined;
@@ -31,42 +31,53 @@
     label =
       decodeURIComponent($page.url.searchParams.get("label") || "") ||
       undefined;
+
     if (label !== undefined) {
       await fetchData(label);
     }
-
-    if (textArea !== null) adjustTextAreaHeight(textArea);
   });
 </script>
 
-<div
-  class="flex flex-col h-full w-full p-4"
-  in:fade={{ duration: 150, delay: 175 }}
->
-  <div class="flex justify-end">
-    <button on:click={() => goto("/")}>Back</button>
+<aside>
+  <button class="nav-btn" on:click={() => goto("/secrets")}
+    ><Icon icon="mdi:arrow-back" width="2rem" height="2rem" /></button
+  >
+  <div class="flex-grow flex items-end">
+    <button class="nav-btn" on:click={logOut} aria-label="Log out"
+      ><Icon icon="mdi:logout-variant" width="2rem" height="2rem" /></button
+    >
   </div>
+</aside>
 
-  {#if err_msg !== undefined}
-    <div class="text-lg italic text-red-900 text-center">{err_msg}</div>
-  {/if}
-  <div class="flex flex-col content-center gap-4 h-full">
+{#if data === undefined}
+  <div
+    class="ml-[4rem] p-8 text-center w-full"
+    in:fade={{ duration: 300, easing: cubicOut }}
+  >
+    <h1 class="text-3xl">Loading...</h1>
+  </div>
+{:else}
+  <div
+    class="flex flex-col flex-grow w-full p-8 ml-[4rem] content gap-4"
+    in:fly={{ x: 300, duration: 150, easing: cubicOut }}
+  >
     <h1 class="text-3xl text-center" aria-label="The secret's label">
       {label}
     </h1>
-
-    <div class="flex flex-col gap-3 overflow-hidden p-2">
-      <textarea
-        placeholder="loading..."
-        class="p-1 resize-none"
-        bind:value={data}
-        autocomplete="off"
-        in:fly={{ x: 300, duration: 150, delay: 150 }}
-        out:fly={{ x: -300, duration: 150 }}
-        bind:this={textArea}
-        readonly
-        aria-label="Secret text"
-      ></textarea>
+    <div class="secret flex-grow">
+      {data}
     </div>
   </div>
-</div>
+{/if}
+
+<style lang="scss">
+  @import "../../assets/scss/variables";
+
+  .secret {
+    background-color: $background;
+    color: $text-light;
+    box-shadow: inset 1px 1px 4px 2px rgba($primary, 0.2);
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+</style>

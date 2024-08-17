@@ -14,7 +14,7 @@
   const MAX_PASSWD_LEN = 24;
   const MIN_TEXT_LEN = 1;
   const MAX_TEXT_LEN = 3000;
-  let selectedType: string = "text";
+  let selectedType: string = "password";
 
   let label: string = "";
   let data: string = "";
@@ -131,20 +131,20 @@
   }
 </script>
 
-<nav class="navbar">
-  <div class="flex-grow">
-    <button class="nav-btn" on:click={() => goto("/secrets")}
-      ><Icon icon="mdi:arrow-back" width="32px" height="32px" /></button
+<aside>
+  <button class="nav-btn" on:click={() => goto("/secrets")}
+    ><Icon icon="mdi:arrow-back" width="2rem" height="2rem" /></button
+  >
+  <div class="flex-grow flex items-end">
+    <button class="nav-btn" on:click={logOut} aria-label="Log out"
+      ><Icon icon="mdi:logout-variant" width="2rem" height="2rem" /></button
     >
   </div>
-  <button class="nav-btn" on:click={logOut} aria-label="Log out"
-    ><Icon icon="mdi:logout-variant" width="32px" height="32px" /></button
-  >
-</nav>
+</aside>
 
 <form
   on:submit|preventDefault={handleSubmit}
-  class="flex flex-col content-center gap-4 flex-grow w-full p-0 pl-[44px]"
+  class="flex flex-col flex-grow p-8 ml-[4rem] gap-4 content-center content"
 >
   <div class="flex justify-between items-center gap-[24px]">
     <h1 class="text-xl">New Secret</h1>

@@ -48,26 +48,23 @@
   });
 </script>
 
-<nav class="navbar">
-  <div class="flex-grow">
-    <button
-      class="nav-btn"
-      on:click={() => goto("/new_secret")}
-      aria-label="Create a new secret"
-      ><Icon
-        icon="mdi:plus-circle-outline"
-        width="32px"
-        height="32px"
-      /></button
+<aside>
+  <button
+    class="nav-btn"
+    on:click={() => goto("/new_secret")}
+    aria-label="Create a new secret"
+    ><Icon icon="mdi:plus-circle-outline" width="2rem" height="2rem" /></button
+  >
+  <div class="flex-grow flex items-end">
+    <button class="nav-btn" on:click={logOut} aria-label="Log out"
+      ><Icon icon="mdi:logout-variant" width="2rem" height="2rem" /></button
     >
   </div>
+</aside>
 
-  <button class="nav-btn" on:click={logOut} aria-label="Log out"
-    ><Icon icon="mdi:logout-variant" width="32px" height="32px" /></button
-  >
-</nav>
-
-<main class="flex flex-col flex-grow gap-[24px] w-full items-center pl-[44px]">
+<main
+  class="flex flex-col flex-grow gap-[24px] items-center ml-[4rem] p-8 content"
+>
   <div class="flex justify-between min-w-[600px] items-center">
     <h1 class="title text-xl">Secrets</h1>
     <div class="flex gap-[24px]">

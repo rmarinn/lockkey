@@ -16,6 +16,6 @@
   });
 </script>
 
-<div class="flex flex-col justify-start items-start p-8 min-h-lvh min-w-max">
+<div class="flex flex-col justify-start items-start min-h-lvh min-w-max">
   <slot />
 </div>
