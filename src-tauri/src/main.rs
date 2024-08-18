@@ -55,11 +55,16 @@ fn new_secret(
 }
 
 #[tauri::command]
-fn edit_secret(label: String, data: String, state: tauri::State<Arc<Mutex<Session>>>) -> Response {
+fn edit_secret(
+    label: String,
+    new_label: String,
+    new_data: String,
+    state: tauri::State<Arc<Mutex<Session>>>,
+) -> Response {
     let sess = state.lock().expect("should get session");
 
-    match sess.edit_secret(&label, data) {
-        Ok(()) => Response::ok().body(json!("secret edited".to_string())),
+    match sess.edit_secret(&label, &new_label, new_data) {
+        Ok(()) => Response::ok().body(json!("scret edited".to_string())),
         Err(e) => Response::err().body(json!(format!("Error creating secret: {e:?}"))),
     }
 }

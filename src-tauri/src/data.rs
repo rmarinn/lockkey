@@ -181,12 +181,19 @@ impl DbConn {
         Ok(())
     }
 
-    pub fn edit_secret(&self, user_id: i64, label: &str, data: Vec<u8>) -> Result<()> {
+    pub fn edit_secret(
+        &self,
+        user_id: i64,
+        label: &str,
+        new_label: &str,
+        new_data: Vec<u8>,
+    ) -> Result<()> {
         let conn = self.get_conn()?;
 
-        let mut stmt = conn
-            .prepare("UPDATE OR ABORT secrets SET data = ?1 WHERE user_id = ?2 AND label = ?3;")?;
-        stmt.execute(params![data, user_id, label])?;
+        let mut stmt = conn.prepare(
+            "UPDATE OR ABORT secrets SET label = ?1, data = ?2 WHERE user_id = ?3 AND label = ?4;",
+        )?;
+        stmt.execute(params![new_label, new_data, user_id, label])?;
 
         Ok(())
     }
@@ -507,21 +514,35 @@ mod test {
 
         conn.create_user(username, master_pass, enc_salt).unwrap();
 
+        // store data
         let passwd: Vec<u8> = "passwd".into();
-        let new_passwd: Vec<u8> = "new_passwd".into();
         let label = "pass1".to_string();
         conn.store_secret(1, Kind::Password, &label, passwd.clone())
             .unwrap();
 
-        // getting back the data
+        // check if data is first in the db
         let (kind, data) = conn.get_secret(1, &label).unwrap().unwrap();
         assert_eq!(&kind, &Kind::Password.to_str());
         assert_eq!(&data, &passwd);
 
-        conn.edit_secret(1, &label, new_passwd.clone()).unwrap();
+        // edit the data
+        let new_passwd: Vec<u8> = "new_passwd".into();
+        conn.edit_secret(1, &label, &label, new_passwd.clone())
+            .unwrap();
         let (kind, data) = conn.get_secret(1, &label).unwrap().unwrap();
         assert_eq!(&kind, &Kind::Password.to_str());
         assert_ne!(&data, &passwd);
         assert_eq!(&data, &new_passwd);
+
+        // edit the label and the password
+        let new_label = "pass2".to_string();
+        conn.edit_secret(1, &label, &new_label, passwd.clone())
+            .unwrap();
+        let (kind, data) = conn.get_secret(1, &new_label).unwrap().unwrap();
+        let old_label = conn.get_secret(1, &label).unwrap();
+        assert_eq!(&kind, &Kind::Password.to_str());
+        assert_ne!(&data, &new_passwd);
+        assert_eq!(&data, &passwd);
+        assert_eq!(old_label, None);
     }
 }

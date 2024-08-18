@@ -135,12 +135,12 @@ impl Session {
         Ok(())
     }
 
-    pub fn edit_secret(&self, label: &str, data: String) -> Result<()> {
+    pub fn edit_secret(&self, label: &str, new_label: &str, new_data: String) -> Result<()> {
         let key = self.get_key()?;
         let db = self.get_db_conn()?;
 
-        let encrypted = encrypt_using_key(key, &data)?;
-        db.edit_secret(self.get_user_id()?, label, encrypted)?;
+        let encrypted = encrypt_using_key(key, &new_data)?;
+        db.edit_secret(self.get_user_id()?, label, new_label, encrypted)?;
         Ok(())
     }
 
