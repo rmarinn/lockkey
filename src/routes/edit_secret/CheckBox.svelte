@@ -1,10 +1,12 @@
 <script lang="ts">
   export let checked: boolean = false;
+  export let ariaLabel: string = "";
 </script>
 
 <button
   on:click={() => (checked = !checked)}
-  class={checked ? "checked" : "unchecked"}><slot /></button
+  class={checked ? "checked" : "unchecked"}
+  aria-label={ariaLabel}><slot /></button
 >
 
 <style lang="scss">

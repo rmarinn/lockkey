@@ -14,6 +14,7 @@
         value="password"
         class="radio-input"
         bind:group={selectedType}
+        aria-label="Select password type secret"
       />
       <label for="kind-passwd" class="radio-label">
         <Icon icon="mdi:key-variant" />
@@ -28,6 +29,7 @@
         value="text"
         class="radio-input"
         bind:group={selectedType}
+        aria-label="Select text type secret"
       />
       <label for="kind-text" class="radio-label">
         <Icon icon="mdi:text-long" /> Text
@@ -49,7 +51,7 @@
 
   .radio-label {
     border: solid 2px $primary;
-    padding: 0.4rem 0.6rem 0.4rem 0.6rem;
+    padding: 0.4rem 0.8rem;
     border-radius: 5rem;
     cursor: pointer;
     transition: background-color 0.3s ease-out;

@@ -9,23 +9,24 @@
   import TextInput from "./TextInput.svelte";
   import { page } from "$app/stores";
   import { onMount } from "svelte";
-  import { fade } from "svelte/transition";
+  import { fly } from "svelte/transition";
 
   const MIN_LABEL_LEN = 3;
   const MAX_LABEL_LEN = 32;
   const MIN_PASSWD_LEN = 6;
   const MAX_PASSWD_LEN = 24;
   const MIN_TEXT_LEN = 1;
-  const MAX_TEXT_LEN = 3000;
+  const MAX_TEXT_LEN = 5000;
   let selectedType: string = "password";
 
+  let loadedLabel: string | undefined = undefined;
   let label: string = "";
   let data: string = "";
   let submitting: boolean = false;
-  let err_msg: string | undefined = undefined;
-  let editing: boolean = true;
-  $: isFetchingData = editing && data === "";
+  let isEditingSecret: boolean = true;
+  let isFetchingData: boolean = true;
 
+  // validation
   $: labelIsNotValid =
     label.length < MIN_LABEL_LEN || label.length > MAX_LABEL_LEN;
   $: passwdIsNotValid =
@@ -34,34 +35,39 @@
   $: textIsNotValid =
     selectedType === "text" &&
     (data.length < MIN_TEXT_LEN || data.length > MAX_TEXT_LEN);
+  $: canSubmit =
+    !labelIsNotValid &&
+    ((selectedType === "password" && !passwdIsNotValid) ||
+      (selectedType === "text" && !textIsNotValid));
 
   async function handleSubmit() {
     submitting = true;
 
     if (labelIsNotValid) {
-      err_msg = "invalid label";
+      console.log("invalid label");
       submitting = false;
       return;
     }
 
     if (passwdIsNotValid) {
-      err_msg = "invalid password";
+      console.log("invalid password");
       submitting = false;
       return;
     }
 
     if (textIsNotValid) {
-      err_msg = "invalid text";
+      console.log("invalid text");
       submitting = false;
       return;
     }
 
     // try to save secret
     let resp: Response<string>;
-    if (editing) {
+    if (isEditingSecret) {
       resp = await invoke<Response<string>>("edit_secret", {
-        label: label,
-        data: data,
+        label: loadedLabel,
+        newLabel: label,
+        newData: data,
       });
     } else {
       resp = await invoke<Response<string>>("new_secret", {
@@ -75,14 +81,13 @@
       goto("/secrets");
       return;
     } else {
-      err_msg = resp.body;
+      console.log(resp.body);
     }
 
     submitting = false;
   }
 
   async function fetchData(label: string) {
-    err_msg = undefined;
     data = "";
 
     let resp = await invoke<Response<Secret | undefined>>("get_secret", {
@@ -93,19 +98,24 @@
       selectedType = resp.body?.kind || "password";
       data = resp.body?.data || "";
     } else {
-      err_msg = "error retrieving the secret";
+      console.log("error retrieving the secret");
     }
+
+    isFetchingData = false;
   }
 
   onMount(async () => {
-    label = decodeURIComponent($page.url.searchParams.get("label") || "");
+    loadedLabel =
+      decodeURIComponent($page.url.searchParams.get("label") || "") ||
+      undefined;
 
-    if (label === "") {
-      editing = false;
+    if (loadedLabel === undefined) {
+      isEditingSecret = false;
       isFetchingData = false;
     } else {
-      editing = true;
       isFetchingData = true;
+      label = loadedLabel;
+      data = "loading...";
       await fetchData(label);
     }
   });
@@ -131,7 +141,7 @@
     class="flex flex-col flex-grow p-8 ml-[4rem] gap-4 content-center content"
   >
     <div class="flex justify-between items-center gap-[24px]">
-      {#if editing}
+      {#if isEditingSecret}
         <h1 class="text-xl">Edit Secret</h1>
       {:else}
         <h1 class="text-xl">New Secret</h1>
@@ -141,6 +151,8 @@
       <button
         class="btn btn-primary flex gap-4 item-center"
         on:click={handleSubmit}
+        disabled={!canSubmit}
+        aria-label="Save secret"
       >
         <Icon icon="mdi:content-save-outline" class="my-auto" />
         Save
@@ -149,25 +161,31 @@
 
     <div class="flex flex-col flex-grow">
       {#if selectedType === "password"}
-        <PasswordInput
-          bind:label
-          bind:passwd={data}
-          minLblLen={MIN_LABEL_LEN}
-          maxLblLen={MAX_LABEL_LEN}
-          minPasswdLen={MIN_PASSWD_LEN}
-          maxPasswdLen={MAX_PASSWD_LEN}
-        />
+        <div in:fly={{ x: 300, duration: 300 }}>
+          <PasswordInput
+            bind:label
+            bind:passwd={data}
+            minLblLen={MIN_LABEL_LEN}
+            maxLblLen={MAX_LABEL_LEN}
+            minPasswdLen={MIN_PASSWD_LEN}
+            maxPasswdLen={MAX_PASSWD_LEN}
+          />
+        </div>
       {:else if selectedType === "text"}
-        <TextInput
-          bind:label
-          bind:text={data}
-          minLblLen={MIN_LABEL_LEN}
-          maxLblLen={MAX_LABEL_LEN}
-          minTextLen={MIN_TEXT_LEN}
-          maxTextLen={MAX_TEXT_LEN}
-        />
+        <div in:fly={{ x: 300, duration: 300 }} class="flex-grow flex flex-col">
+          <TextInput
+            bind:label
+            bind:text={data}
+            minLblLen={MIN_LABEL_LEN}
+            maxLblLen={MAX_LABEL_LEN}
+            minTextLen={MIN_TEXT_LEN}
+            maxTextLen={MAX_TEXT_LEN}
+          />
+        </div>
       {:else}
-        <p>Unknown type</p>
+        <div in:fly={{ x: 300, duration: 300 }}>
+          <p>Unknown type</p>
+        </div>
       {/if}
     </div>
   </div>
