@@ -15,7 +15,7 @@
       <div class="box six"></div>
     </div>
   </div>
-  <div class="msg italic">{loadingMsg}</div>
+  <div class="loading-msg italic">{loadingMsg}</div>
 </div>
 
 <style lang="scss">
@@ -34,10 +34,10 @@
 
   //clip-path: inset() doesn't work on firefox and IE, if anyone feels like making it work with SVG clipping, please drop me a link in comments, would like to see it. :)
 
-  .msg {
+  .loading-msg {
     position: absolute;
     left: 50%;
-    transform: translateX(-50%) translateY(150%);
+    transform: translateX(-75%) translateY(150%);
   }
 
   *,
@@ -65,7 +65,7 @@
       height: $box-wrapper-height;
       margin: $box-wrapper-margin;
       position: relative;
-      transform: rotate(-45deg);
+      transform: rotate(-45deg) translateY(-50%);
 
       .box {
         width: 100%;

@@ -14,7 +14,7 @@
 
   .container {
     gap: 0.5rem;
-    height: $height;
+    height: 1rem;
     position: relative;
     width: calc($width * 3 + 0.5rem);
   }

@@ -1,6 +1,5 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import { Pulse } from "svelte-loading-spinners";
 
   import { goto } from "$app/navigation";
   import { createEventDispatcher } from "svelte";

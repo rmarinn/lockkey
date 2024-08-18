@@ -102,7 +102,7 @@
 </script>
 
 <div
-  class="flex flex-col gap-4 mx-auto"
+  class="flex flex-col gap-4 mx-auto items-center"
   in:fly={{ x: 300, duration: 150, delay: 150 }}
 >
   <div class="card flex flex-col gap-4">
