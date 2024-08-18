@@ -3,19 +3,20 @@
   import { invoke } from "@tauri-apps/api/tauri";
   import type { Response } from "@types";
   import SmallLoader from "../SmallLoader.svelte";
+  import { MsgType, showMsg } from "../../assets/ts/popupMsgStore";
 
   let usrname: string = "";
   let passwd: string = "";
-  let err_msg: string | undefined = undefined;
   let submitting: boolean = false;
 
   $: inputIsInvalid = usrname.length === 0 || passwd.length === 0;
 
   async function handleLogin() {
     submitting = true;
-    err_msg = undefined;
 
     if (inputIsInvalid) {
+      submitting = false;
+      showMsg(MsgType.Error, "Invalid inputs");
       return;
     }
 
@@ -29,7 +30,10 @@
       return;
     }
 
-    err_msg = resp.body ?? "An error has occured while trying to log in";
+    showMsg(
+      MsgType.Error,
+      resp.body ?? "An error has occured while trying to log in",
+    );
     submitting = false;
   }
 </script>
