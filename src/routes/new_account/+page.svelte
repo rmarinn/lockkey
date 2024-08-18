@@ -145,11 +145,7 @@
       </div>
     </div>
     <div class="flex flex-col gap-[10px] m-auto">
-      <button
-        class="btn flex justify-center"
-        disabled={invalidInput || submitting}
-        type="submit"
-      >
+      <button class="btn" disabled={invalidInput || submitting} type="submit">
         {#if submitting}
           <SmallLoader />
         {:else}

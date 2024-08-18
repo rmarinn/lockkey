@@ -46,7 +46,7 @@
 
   @keyframes movement {
     from {
-      height: $height/2;
+      height: calc($height/2);
       background-color: $text-light;
     }
 
@@ -56,7 +56,7 @@
     }
 
     to {
-      height: $height/2;
+      height: calc($height/2);
       background-color: $text-light;
     }
   }

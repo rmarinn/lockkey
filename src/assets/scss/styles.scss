@@ -99,6 +99,10 @@ textarea {
   filter: drop-shadow(1px 1px 1px rgba($primary, 0.9));
   transition: transform 0.2s ease-out, filter 0.3s ease-out, color 0.3s ease-out, background-color 0.3s ease-out;
   border: solid 2px $primary;
+  min-height: 3rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 
   &:disabled {
     border: dashed 2px $primary;
