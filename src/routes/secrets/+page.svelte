@@ -5,6 +5,7 @@
   import { invoke } from "@tauri-apps/api/tauri";
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
+  import { flip } from "svelte/animate";
 
   import type { Response } from "@types";
   import { logOut } from "@utils";
@@ -105,11 +106,13 @@
     </div>
   {:else}
     {#each filteredSecrets as secret (secret.label)}
-      <ListItem
-        label={secret.label}
-        kind={secret.kind}
-        on:secretDeleted={onSecretDeleted}
-      />
+      <div animate:flip={{ duration: 300 }}>
+        <ListItem
+          label={secret.label}
+          kind={secret.kind}
+          on:secretDeleted={onSecretDeleted}
+        />
+      </div>
     {/each}
   {/if}
 </main>

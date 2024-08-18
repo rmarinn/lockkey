@@ -6,6 +6,7 @@
   import { createEventDispatcher } from "svelte";
   import { fly, fade } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
+  import { MsgType, showMsg } from "../../assets/ts/popupMsgStore";
 
   import type { Response, Secret } from "@types";
   import { invoke } from "@tauri-apps/api/tauri";
@@ -57,10 +58,10 @@
       navigator.clipboard
         .writeText(data)
         .then(() => {
-          console.log("Text copied to clipboard");
+          showMsg(MsgType.Success, "Text copied to clipboard");
         })
         .catch((err) => {
-          console.log("Failed to copy text: ", err);
+          showMsg(MsgType.Error, `Failed to copy into clipboard: ${err}`);
         });
     }
 
@@ -69,8 +70,20 @@
   }
 
   async function deleteSecret() {
-    await invoke("delete_secret", { label: label });
-    dispatch("secretDeleted", { label: label });
+    let resp = await invoke<Response<string>>("delete_secret", {
+      label: label,
+    });
+
+    if (resp.success) {
+      dispatch("secretDeleted", { label: label });
+      showMsg(MsgType.Success, "Secret deleted");
+    } else {
+      showMsg(
+        MsgType.Error,
+        resp.body ??
+          `An unknown error has occured while trying to delete secret.`,
+      );
+    }
   }
 </script>
 

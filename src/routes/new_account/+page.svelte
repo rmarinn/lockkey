@@ -1,8 +1,8 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { fade } from "svelte/transition";
   import { invoke } from "@tauri-apps/api/tauri";
   import type { Response } from "@types";
+  import { MsgType, showMsg } from "../../assets/ts/popupMsgStore";
 
   const minUsrnameLen = 3;
   const maxUsrnameLen = 24;
@@ -12,7 +12,6 @@
   let usrname = "";
   let passwd = "";
   let confirm_passwd = "";
-  let err_msg: string | undefined = undefined;
 
   $: invalidInput =
     usrname.length < minUsrnameLen ||
@@ -22,8 +21,6 @@
     passwd.length > maxPasswdLen;
 
   async function handleCreateAccount() {
-    err_msg = undefined;
-
     if (invalidInput) return;
 
     let resp = await invoke<Response<string>>("new_user", {
@@ -33,10 +30,13 @@
 
     if (resp.success === true) {
       goto("/login");
+      showMsg(MsgType.Success, "Account created");
     } else {
-      err_msg =
+      showMsg(
+        MsgType.Error,
         resp.body ??
-        "An error has occured whilte trying to create a new account";
+          "An error has occured whilte trying to create a new account",
+      );
     }
   }
 </script>
