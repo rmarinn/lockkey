@@ -8,6 +8,7 @@
   import Icon from "@iconify/svelte";
   import { logOut } from "@utils";
   import { cubicOut } from "svelte/easing";
+  import Loader from "../Loader.svelte";
 
   let label: string | undefined;
   let data: string | undefined;
@@ -51,10 +52,9 @@
 
 {#if data === undefined}
   <div
-    class="ml-[4rem] p-8 text-center w-full"
-    in:fade={{ duration: 300, easing: cubicOut }}
+    class="content text-center flex-grow flex justify-center items-center ml-[4rem] pb-8 text-nowrap"
   >
-    <h1 class="text-3xl">Loading...</h1>
+    <Loader loadingMsg="Loading secret..." />
   </div>
 {:else}
   <div

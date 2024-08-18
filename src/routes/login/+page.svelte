@@ -2,6 +2,7 @@
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
   import type { Response } from "@types";
+  import SmallLoader from "../SmallLoader.svelte";
 
   let usrname: string = "";
   let passwd: string = "";
@@ -52,8 +53,16 @@
     </div>
 
     <div class="flex flex-col gap-[12px]">
-      <button class="btn" disabled={submitting || inputIsInvalid} type="submit">
-        Log in
+      <button
+        class="btn flex justify-center"
+        disabled={submitting || inputIsInvalid}
+        type="submit"
+      >
+        {#if submitting}
+          <SmallLoader />
+        {:else}
+          Log in
+        {/if}
       </button>
       <button
         class="btn btn-secondary"

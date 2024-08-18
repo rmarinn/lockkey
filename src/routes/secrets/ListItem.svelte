@@ -10,6 +10,7 @@
 
   import type { Response, Secret } from "@types";
   import { invoke } from "@tauri-apps/api/tauri";
+  import SmallLoader from "../SmallLoader.svelte";
 
   const dispatch = createEventDispatcher();
   export let label: string = "";
@@ -108,7 +109,7 @@
     {#if secretData !== undefined}
       {#if secretData === "decrypting password..."}
         <div class="pr-[24px]" in:fade={{ duration: 300, easing: cubicOut }}>
-          <Pulse size="24" unit="px" duration="0.3s" color="#e9edf1" />
+          <SmallLoader />
         </div>
       {:else}
         <div

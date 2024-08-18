@@ -11,6 +11,7 @@
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
   import { MsgType, showMsg } from "../../assets/ts/popupMsgStore";
+  import Loader from "../Loader.svelte";
 
   const MIN_LABEL_LEN = 3;
   const MAX_LABEL_LEN = 32;
@@ -135,8 +136,10 @@
 </aside>
 
 {#if isFetchingData}
-  <div class="content text-center text-3xl flex-grow">
-    Loading {label}...
+  <div
+    class="content text-center flex-grow flex justify-center items-center ml-[4rem] pb-8 text-nowrap"
+  >
+    <Loader loadingMsg="Loading secret..." />
   </div>
 {:else}
   <div
