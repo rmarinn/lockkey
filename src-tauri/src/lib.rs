@@ -2,6 +2,8 @@ mod auth;
 mod data;
 mod encryption;
 
+use std::time::Instant;
+
 use anyhow::{anyhow, Result};
 use auth::{hash_password, verify_passwd};
 use data::{Kind, RetrieveLabelsQueryResult};
@@ -11,9 +13,10 @@ use crate::data::DbConn;
 use crate::encryption::*;
 
 pub struct Session {
-    user_id: Option<i64>,
-    key: Option<[u8; 32]>,
-    db_conn: Option<DbConn>,
+    user_id: i64,
+    key: [u8; 32],
+    db_conn: DbConn,
+    pub last_activity: Instant,
 }
 
 #[derive(serde::Serialize, Debug, PartialEq)]
@@ -23,78 +26,21 @@ pub struct Secret {
     kind: String,
 }
 
+pub fn create_new_account(username: &str, mut passwd: String, db_path: &str) -> Result<()> {
+    let db_conn = DbConn::new(db_path)?;
+    let enc_salt = generate_salt();
+    let passwd_hash = hash_password(&passwd)?;
+    db_conn.create_user(username, &passwd_hash, &enc_salt)?;
+
+    passwd.zeroize();
+    Ok(())
+}
+
 impl Session {
-    pub fn new() -> Self {
-        Session {
-            user_id: None,
-            key: None,
-            db_conn: None,
-        }
-    }
+    pub fn new(usrname: &str, mut passwd: String, db_path: &str) -> Result<Session> {
+        let db_conn = DbConn::new(db_path)?;
 
-    fn get_user_id(&self) -> Result<i64> {
-        match &self.user_id {
-            Some(id) => Ok(*id),
-            None => Err(anyhow!("session does not have a user_id yet")),
-        }
-    }
-
-    fn get_key(&self) -> Result<&[u8; 32]> {
-        match &self.key {
-            Some(key) => Ok(key),
-            None => Err(anyhow!("session does not have a key yet")),
-        }
-    }
-
-    fn get_db_conn(&self) -> Result<&DbConn> {
-        match &self.db_conn {
-            Some(conn) => Ok(conn),
-            None => Err(anyhow!("connection to db is not established yet")),
-        }
-    }
-
-    pub fn is_authenticated(&self) -> bool {
-        self.key.is_some()
-    }
-
-    pub fn create_user(&self, username: &str, mut passwd: String) -> Result<()> {
-        let db = self.get_db_conn().expect("should get db connection");
-        let enc_salt = generate_salt();
-        let passwd_hash = hash_password(&passwd)?;
-        db.create_user(username, &passwd_hash, &enc_salt)?;
-
-        passwd.zeroize();
-        Ok(())
-    }
-
-    pub fn delete_user(&self, mut passwd: String) -> Result<()> {
-        let db = self.get_db_conn().expect("should get db connection");
-
-        let usrname = match db.get_username(&self.get_user_id()?)? {
-            Some(usrname) => usrname,
-            None => return Err(anyhow!("user does not exist")),
-        };
-
-        let stored_hash = match db.get_user_passwd_hash(&usrname)? {
-            Some(hash) => hash,
-            None => return Err(anyhow!("user does not have a stored hash")),
-        };
-
-        if !verify_passwd(&passwd, &stored_hash)? {
-            return Err(anyhow!("invalid password"));
-        }
-
-        db.delete_user(&usrname)?;
-
-        passwd.zeroize();
-
-        Ok(())
-    }
-
-    pub fn authenticate_user(&mut self, usrname: &str, mut passwd: String) -> Result<()> {
-        let db = self.get_db_conn().expect("should get db connection");
-
-        let passwd_hash = match db.get_user_passwd_hash(&usrname)? {
+        let passwd_hash = match db_conn.get_user_passwd_hash(&usrname)? {
             Some(hash) => hash,
             None => return Err(anyhow!("invalid username or password")),
         };
@@ -103,57 +49,70 @@ impl Session {
             return Err(anyhow!("invalid username or password"));
         }
 
-        let enc_key = match db.get_user_enc_salt(usrname)? {
-            Some(salt) => Some(derive_encryption_key(&passwd, &salt)?),
+        let key = match db_conn.get_user_enc_salt(usrname)? {
+            Some(salt) => derive_encryption_key(&passwd, &salt)?,
             None => return Err(anyhow!("user has missing data")),
         };
 
-        let user_id = match db.get_user_id(&usrname)? {
-            Some(id) => Some(id),
+        let user_id = match db_conn.get_user_id(&usrname)? {
+            Some(id) => id,
             None => return Err(anyhow!("user has missing data")),
         };
 
-        self.key = enc_key;
-        self.user_id = user_id;
+        passwd.zeroize();
+
+        Ok(Session {
+            user_id,
+            key,
+            db_conn,
+            last_activity: Instant::now(),
+        })
+    }
+
+    pub fn delete_user(&self, mut passwd: String) -> Result<()> {
+        let usrname = match self.db_conn.get_username(&self.user_id)? {
+            Some(usrname) => usrname,
+            None => return Err(anyhow!("user does not exist")),
+        };
+
+        let stored_hash = match self.db_conn.get_user_passwd_hash(&usrname)? {
+            Some(hash) => hash,
+            None => return Err(anyhow!("user does not have a stored hash")),
+        };
+
+        if !verify_passwd(&passwd, &stored_hash)? {
+            return Err(anyhow!("invalid password"));
+        }
+
+        self.db_conn.delete_user(&usrname)?;
 
         passwd.zeroize();
 
         Ok(())
     }
 
-    pub fn connect_to_db(mut self, db_path: &str) -> Self {
-        self.db_conn = Some(DbConn::new(db_path).expect("should connect to db"));
-        self
-    }
-
-    pub fn store_secret(&self, kind: &str, label: &str, data: String) -> Result<()> {
-        let key = self.get_key()?;
-        let db = self.get_db_conn()?;
-
-        let encrypted = encrypt_using_key(key, &data)?;
-        db.store_secret(self.get_user_id()?, Kind::from_str(kind)?, label, encrypted)?;
+    pub fn store_secret(&self, kind: &str, label: &str, mut data: String) -> Result<()> {
+        let encrypted = encrypt_using_key(&self.key, &data)?;
+        self.db_conn
+            .store_secret(self.user_id, Kind::from_str(kind)?, label, encrypted)?;
+        data.zeroize();
         Ok(())
     }
 
     pub fn edit_secret(&self, label: &str, new_label: &str, new_data: String) -> Result<()> {
-        let key = self.get_key()?;
-        let db = self.get_db_conn()?;
-
-        let encrypted = encrypt_using_key(key, &new_data)?;
-        db.edit_secret(self.get_user_id()?, label, new_label, encrypted)?;
+        let encrypted = encrypt_using_key(&self.key, &new_data)?;
+        self.db_conn
+            .edit_secret(self.user_id, label, new_label, encrypted)?;
         Ok(())
     }
 
     pub fn retrieve_secret(&self, label: &str) -> Result<Option<Secret>> {
-        let key = self.get_key()?;
-        let db = self.get_db_conn()?;
-
-        let (kind, encrypted_data) = match db.get_secret(self.get_user_id()?, label)? {
+        let (kind, encrypted_data) = match self.db_conn.get_secret(self.user_id, label)? {
             Some(d) => d,
             None => return Ok(None),
         };
 
-        let decrypted_data = decrypt_using_key(key, encrypted_data)?;
+        let decrypted_data = decrypt_using_key(&self.key, encrypted_data)?;
         let secret = Secret {
             label: label.into(),
             kind,
@@ -163,29 +122,23 @@ impl Session {
     }
 
     pub fn retrieve_labels(&self) -> Result<Vec<RetrieveLabelsQueryResult>> {
-        let db = self.get_db_conn()?;
-        Ok(db.get_labels(self.get_user_id()?)?)
+        Ok(self.db_conn.get_labels(self.user_id)?)
     }
 
     pub fn delete_secret(&self, label: &str) -> Result<()> {
-        let db = self.get_db_conn()?;
-        db.delete_secret(&self.get_user_id()?, label)?;
+        self.db_conn.delete_secret(self.user_id, label)?;
         Ok(())
     }
 
     pub fn logout(&mut self) -> Result<()> {
-        self.user_id = None;
         self.key.zeroize();
-        self.key = None;
         Ok(())
     }
 }
 
 impl Drop for Session {
     fn drop(&mut self) {
-        if let Some(db) = self.db_conn.take() {
-            db.close().expect("should close db connection");
-        }
+        self.db_conn.close().expect("should close db connection");
         self.key.zeroize();
     }
 }
@@ -247,12 +200,11 @@ mod test {
         let label = String::from("mypass");
         let secret = String::from("mysecret");
 
-        let mut sess = Session::new().connect_to_db(&db_path);
-        sess.create_user(&username, passwd.clone()).unwrap();
-        sess.authenticate_user(&username, passwd.clone()).unwrap();
+        create_new_account(&username, passwd.clone(), db_path).unwrap();
+        let sess = Session::new(&username, passwd.clone(), db_path).unwrap();
 
         sess.store_secret("password", &label, secret.to_string())
-            .expect("should insert secret into db");
+            .unwrap();
 
         let retrieved_secret = sess.retrieve_secret(&label).unwrap();
 
@@ -278,10 +230,8 @@ mod test {
         let label3 = String::from("mypass3");
         let secret = String::from("mysecret");
 
-        let mut sess = Session::new().connect_to_db(db_path);
-        sess.create_user(&username, passwd.clone()).unwrap();
-        sess.authenticate_user(&username.to_string(), passwd)
-            .unwrap();
+        create_new_account(&username, passwd.clone(), db_path).unwrap();
+        let sess = Session::new(&username, passwd.clone(), db_path).unwrap();
 
         sess.store_secret("text", &label1, secret.to_string())
             .expect("should insert secret into db");
@@ -299,48 +249,14 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
-    fn cannot_access_db_without_key() {
-        let test_db = TestDb::new();
-        let db_path = test_db.get_path();
-
-        let label1 = "mypass";
-        let secret = "mysecret";
-
-        let sess = Session::new().connect_to_db(db_path);
-
-        sess.store_secret("password", &label1, secret.to_string())
-            .expect("should insert secret into db");
-    }
-
-    #[test]
-    #[should_panic]
-    fn cannot_access_db_without_conn() {
-        let label1 = String::from("mypass");
-        let secret = String::from("mysecret");
-        let username = String::from("test_user");
-        let passwd = String::from("test_pass");
-
-        let mut sess = Session::new();
-        sess.create_user(&username, passwd.clone()).unwrap();
-        sess.authenticate_user(&username.to_string(), passwd)
-            .unwrap();
-
-        sess.store_secret("password", &label1, secret.to_string())
-            .unwrap();
-    }
-
-    #[test]
     fn should_return_empty_on_nonexistent_labels() {
         let test_db = TestDb::new();
         let db_path = test_db.get_path();
         let username = String::from("test_user");
         let passwd = String::from("test_pass");
 
-        let mut sess = Session::new().connect_to_db(db_path);
-        sess.create_user(&username, passwd.clone()).unwrap();
-        sess.authenticate_user(&username.to_string(), passwd)
-            .unwrap();
+        create_new_account(&username, passwd.clone(), db_path).unwrap();
+        let sess = Session::new(&username, passwd.clone(), db_path).unwrap();
 
         let data = sess.retrieve_secret("test").unwrap();
         assert_eq!(data, None);
@@ -356,13 +272,11 @@ mod test {
         let label = String::from("mypass");
         let secret = String::from("mysecret");
 
-        let mut sess = Session::new().connect_to_db(db_path);
-        sess.create_user(&username, passwd.clone()).unwrap();
-        sess.authenticate_user(&username.to_string(), passwd)
-            .unwrap();
+        create_new_account(&username, passwd.clone(), db_path).unwrap();
+        let sess = Session::new(&username, passwd.clone(), db_path).unwrap();
 
         sess.store_secret("password", &label, secret.to_string())
-            .expect("should insert secret into db");
+            .unwrap();
 
         // check if data is inserted successfully
         let retrieved_secret = sess
@@ -398,10 +312,8 @@ mod test {
         let label = String::from("mypass");
         let secret = String::from("mysecret");
 
-        let mut sess = Session::new().connect_to_db(db_path);
-        sess.create_user(&username, passwd.clone()).unwrap();
-        sess.authenticate_user(&username.to_string(), passwd)
-            .unwrap();
+        create_new_account(&username, passwd.clone(), db_path).unwrap();
+        let sess = Session::new(&username, passwd.clone(), db_path).unwrap();
 
         let sess = Arc::new(Mutex::new(sess));
 

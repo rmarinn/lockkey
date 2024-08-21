@@ -228,7 +228,7 @@ impl DbConn {
         Ok(data)
     }
 
-    pub fn delete_secret(&self, user_id: &i64, label: &str) -> Result<()> {
+    pub fn delete_secret(&self, user_id: i64, label: &str) -> Result<()> {
         let conn = self.get_conn()?;
 
         let mut stmt = conn.prepare("DELETE FROM secrets WHERE user_id == ?1 AND label = ?2;")?;
@@ -236,7 +236,7 @@ impl DbConn {
         Ok(())
     }
 
-    pub fn close(mut self) -> Result<()> {
+    pub fn close(&mut self) -> Result<()> {
         if let Some(conn) = self.conn.take() {
             conn.close().expect("should close db connection");
         }
@@ -409,7 +409,7 @@ mod test {
         let data = conn.get_secret(1, &label).unwrap();
         assert_eq!(data, Some((Kind::Password.to_str(), passwd)));
 
-        conn.delete_secret(&1, &label).expect("should delete data");
+        conn.delete_secret(1, &label).expect("should delete data");
 
         // try to get data again
         let data = conn.get_secret(1, &label).unwrap();

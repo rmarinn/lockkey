@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onNavigate } from "$app/navigation";
   import "../assets/scss/styles.scss";
-  import PopupOverlay from "./PopupOverlay.svelte";
+  import PopupMsgs from "./PopupMsgOverlay.svelte";
+  import SessionHandler from "./SessionHandler.svelte";
+  import Alert from "./AlertOverlay.svelte";
 
   onNavigate((navigation) => {
     // @ts-ignore
@@ -17,7 +19,9 @@
   });
 </script>
 
-<PopupOverlay />
+<Alert />
+<PopupMsgs />
+<SessionHandler />
 
 <div class="flex flex-col justify-start items-start min-h-lvh min-w-max">
   <slot />

@@ -2,7 +2,7 @@
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
   import type { Response } from "@types";
-  import { MsgType, showMsg } from "../../assets/ts/popupMsgStore";
+  import { MsgType, showPopupMsg } from "../../assets/ts/popupMsgStore";
   import SmallLoader from "../SmallLoader.svelte";
   import { slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
@@ -33,7 +33,7 @@
   async function handleCreateAccount() {
     if (invalidInput) {
       submitting = false;
-      showMsg(MsgType.Error, "Invalid username or password");
+      showPopupMsg(MsgType.Error, "Invalid username or password");
       return;
     }
 
@@ -46,9 +46,9 @@
 
     if (resp.success === true) {
       goto("/login");
-      showMsg(MsgType.Success, "Account created");
+      showPopupMsg(MsgType.Success, "Account created");
     } else {
-      showMsg(
+      showPopupMsg(
         MsgType.Error,
         resp.body ??
           "An error has occured whilte trying to create a new account",

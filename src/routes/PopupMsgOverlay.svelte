@@ -1,19 +1,37 @@
 <script lang="ts">
-  import type { PopupMsg } from "../assets/ts/popupMsgStore";
-  import { popupMsgs, MsgType } from "../assets/ts/popupMsgStore";
+  import { MsgType, type PopupMsg } from "../assets/ts/popupMsgStore";
+  import { popupMsgs } from "../assets/ts/popupMsgStore";
   import { fly, fade } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { flip } from "svelte/animate";
 
   let msgs: PopupMsg[] = [];
   $: popupMsgs.subscribe((value) => (msgs = value));
+
+  function getMsgClass(msgType: MsgType) {
+    let msgClass: string = "popup-msg";
+    switch (msgType) {
+      case MsgType.Success:
+        msgClass += " msg-success";
+        break;
+      case MsgType.Warning:
+        msgClass += " msg-warning";
+        break;
+      case MsgType.Error:
+        msgClass += " msg-error";
+        break;
+      default:
+        break;
+    }
+    return msgClass;
+  }
 </script>
 
 {#if msgs.length > 0}
   <div class="popup-overlay">
-    {#each msgs as msg (msg.msg)}
+    {#each msgs as msg (msg.id)}
       <div
-        class={"popup-msg msg-" + MsgType[msg.type].toLowerCase()}
+        class={getMsgClass(msg.type)}
         in:fly|global={{ y: 50, duration: 300, easing: cubicOut }}
         out:fade|global={{ duration: 300, easing: cubicOut }}
         animate:flip={{ duration: 200 }}
@@ -53,5 +71,10 @@
 
   .msg-error {
     background: $error;
+  }
+
+  .msg-warning {
+    background: darken($warning, 10);
+    color: $text-dark;
   }
 </style>

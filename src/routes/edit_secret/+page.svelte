@@ -10,7 +10,7 @@
   import { page } from "$app/stores";
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
-  import { MsgType, showMsg } from "../../assets/ts/popupMsgStore";
+  import { MsgType, showPopupMsg } from "../../assets/ts/popupMsgStore";
   import Loader from "../Loader.svelte";
 
   const MIN_LABEL_LEN = 3;
@@ -46,19 +46,19 @@
     submitting = true;
 
     if (labelIsNotValid) {
-      showMsg(MsgType.Error, "Invalid label");
+      showPopupMsg(MsgType.Error, "Invalid label");
       submitting = false;
       return;
     }
 
     if (passwdIsNotValid) {
-      showMsg(MsgType.Error, "Invalid password");
+      showPopupMsg(MsgType.Error, "Invalid password");
       submitting = false;
       return;
     }
 
     if (textIsNotValid) {
-      showMsg(MsgType.Error, "Invalid text");
+      showPopupMsg(MsgType.Error, "Invalid text");
       submitting = false;
       return;
     }
@@ -81,10 +81,10 @@
 
     if (resp.success) {
       goto("/secrets");
-      showMsg(MsgType.Success, "Secret created");
+      showPopupMsg(MsgType.Success, "Secret created");
       return;
     } else {
-      showMsg(MsgType.Error, resp.body ?? "An unknown error has occured.");
+      showPopupMsg(MsgType.Error, resp.body ?? "An unknown error has occured.");
     }
 
     submitting = false;
@@ -101,7 +101,7 @@
       selectedType = resp.body?.kind || "password";
       data = resp.body?.data || "";
     } else {
-      showMsg(MsgType.Error, "Error retrieving the secret");
+      showPopupMsg(MsgType.Error, "Error retrieving the secret");
     }
 
     isFetchingData = false;

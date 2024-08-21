@@ -19,13 +19,14 @@
 </div>
 
 <style lang="scss">
+  @use "sass:math";
   @import "../assets/scss/variables";
 
   $grad-duration: 1s;
   $move-speed: 3.5s;
 
   $w-size: 200px;
-  $w-margin: -$w-size/2;
+  $w-margin: math.div($w-size, -2);
   $b-size: 4rem; //This is % based on $w-size. Use any value you want (that makes sense) and any unit that you would like (test it)
   $box-wrapper-width: $b-size;
   $box-wrapper-height: $b-size;

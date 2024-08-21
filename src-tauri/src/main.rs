@@ -1,10 +1,15 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+    time::{Duration, Instant},
+};
 
-use lockkey::Session;
+use lockkey::{create_new_account, Session};
 use serde_json::{json, Value};
+use tauri::Manager;
 
 #[derive(serde::Serialize)]
 struct Response {
@@ -44,13 +49,16 @@ fn new_secret(
     kind: String,
     label: String,
     data: String,
-    state: tauri::State<Arc<Mutex<Session>>>,
+    state: tauri::State<Arc<Mutex<Option<Session>>>>,
 ) -> Response {
-    let sess = state.lock().expect("should get session");
+    let sess_guard = state.lock().expect("should get session");
 
-    match sess.store_secret(&kind, &label, data) {
-        Ok(()) => Response::ok().body(json!("secret created".to_string())),
-        Err(e) => Response::err().body(json!(format!("Error creating secret: {e:?}"))),
+    match *sess_guard {
+        Some(ref session) => match session.store_secret(&kind, &label, data) {
+            Ok(()) => Response::ok().body(json!("Secret created".to_string())),
+            Err(e) => Response::err().body(json!(format!("Error creating secret: {e:?}"))),
+        },
+        None => Response::err().body(json!("No running session")),
     }
 }
 
@@ -59,99 +67,190 @@ fn edit_secret(
     label: String,
     new_label: String,
     new_data: String,
-    state: tauri::State<Arc<Mutex<Session>>>,
+    state: tauri::State<Arc<Mutex<Option<Session>>>>,
 ) -> Response {
-    let sess = state.lock().expect("should get session");
+    let sess_guard = state.lock().expect("should get session");
 
-    match sess.edit_secret(&label, &new_label, new_data) {
-        Ok(()) => Response::ok().body(json!("scret edited".to_string())),
-        Err(e) => Response::err().body(json!(format!("Error creating secret: {e:?}"))),
-    }
-}
-
-#[tauri::command]
-fn delete_secret(label: String, state: tauri::State<Arc<Mutex<Session>>>) -> Response {
-    let sess = state.lock().expect("should get session");
-
-    match sess.delete_secret(&label) {
-        Ok(()) => Response::ok().body(json!(format!("{:?} deleted", label))),
-        Err(e) => Response::err().body(json!(format!("Error deleting secret: {e:?}"))),
-    }
-}
-
-#[tauri::command]
-fn get_labels(state: tauri::State<Arc<Mutex<Session>>>) -> Response {
-    let sess = state.lock().expect("should get session");
-
-    match sess.retrieve_labels() {
-        Ok(labels) => {
-            let labels: Vec<Label> = labels
-                .into_iter()
-                .map(|x| Label {
-                    label: x.label,
-                    kind: x.kind,
-                })
-                .collect();
-            Response::ok().body(json!(labels))
-        }
-        Err(e) => Response::err().body(json!(format!("Error getting labels: {e:?}"))),
-    }
-}
-
-#[tauri::command]
-fn get_secret(label: String, state: tauri::State<Arc<Mutex<Session>>>) -> Response {
-    let sess = state.lock().expect("should get session");
-
-    match sess.retrieve_secret(&label) {
-        Ok(result) => match result {
-            Some(s) => Response::ok().body(json!(s)),
-            None => Response::err().body(json!(format!("{:?} does not exist", label))),
+    match *sess_guard {
+        Some(ref session) => match session.edit_secret(&label, &new_label, new_data) {
+            Ok(()) => Response::ok().body(json!("scret edited".to_string())),
+            Err(e) => Response::err().body(json!(format!("Error creating secret: {e:?}"))),
         },
-        Err(e) => Response::err().body(json!(format!("Error getting secret: {e:?}"))),
+        None => Response::err().body(json!(format!("No running session"))),
     }
 }
 
 #[tauri::command]
-fn is_authenticated(state: tauri::State<Arc<Mutex<Session>>>) -> Response {
-    let sess = state.lock().expect("should get session");
-    Response::ok().body(json!(sess.is_authenticated()))
+fn delete_secret(label: String, state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
+    let sess_guard = state.lock().expect("should get session");
+
+    match *sess_guard {
+        Some(ref session) => match session.delete_secret(&label) {
+            Ok(()) => Response::ok().body(json!(format!("{:?} deleted", label))),
+            Err(e) => Response::err().body(json!(format!("Error deleting secret: {e:?}"))),
+        },
+        None => Response::err().body(json!(format!("No running session"))),
+    }
 }
 
 #[tauri::command]
-fn new_user(usrname: String, passwd: String, state: tauri::State<Arc<Mutex<Session>>>) -> Response {
-    let sess = state.lock().expect("should get session");
-    match sess.create_user(&usrname, passwd) {
+fn get_labels(state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
+    let sess_guard = state.lock().expect("should get session");
+
+    match *sess_guard {
+        Some(ref session) => match session.retrieve_labels() {
+            Ok(labels) => {
+                let labels: Vec<Label> = labels
+                    .into_iter()
+                    .map(|x| Label {
+                        label: x.label,
+                        kind: x.kind,
+                    })
+                    .collect();
+                Response::ok().body(json!(labels))
+            }
+            Err(e) => Response::err().body(json!(format!("Error getting labels: {e:?}"))),
+        },
+        None => Response::err().body(json!(format!("No running session"))),
+    }
+}
+
+#[tauri::command]
+fn get_secret(label: String, state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
+    let sess_guard = state.lock().expect("should get session");
+
+    match *sess_guard {
+        Some(ref session) => match session.retrieve_secret(&label) {
+            Ok(result) => match result {
+                Some(s) => Response::ok().body(json!(s)),
+                None => Response::err().body(json!(format!("{:?} does not exist", label))),
+            },
+            Err(e) => Response::err().body(json!(format!("Error getting secret: {e:?}"))),
+        },
+        None => Response::err().body(json!(format!("No running session"))),
+    }
+}
+
+#[tauri::command]
+fn is_authenticated(state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
+    let sess_guard = state.lock().expect("should get managed session state");
+    match *sess_guard {
+        Some(_) => Response::ok().body(json!(true)),
+        None => Response::ok().body(json!(false)),
+    }
+}
+
+#[tauri::command]
+fn new_user(
+    usrname: String,
+    passwd: String,
+    db_path: tauri::State<Arc<Mutex<String>>>,
+) -> Response {
+    let db_path = db_path.lock().expect("should get db path");
+    match create_new_account(&usrname, passwd, &db_path) {
         Ok(()) => Response::ok().body(json!(format!("user `{:?}` created", usrname))),
         Err(e) => Response::err().body(json!(format!("Error creating a new account: {e:?}"))),
     }
 }
 
 #[tauri::command]
-fn login(usrname: String, passwd: String, state: tauri::State<Arc<Mutex<Session>>>) -> Response {
-    let mut sess = state.lock().expect("should get session");
-    match sess.authenticate_user(&usrname, passwd) {
-        Ok(()) => Response::ok().body(json!(format!("logged in as {:?}", usrname))),
-        Err(e) => Response::err().body(json!(format!("Error loggin in: {e:?}"))),
+fn login(
+    usrname: String,
+    passwd: String,
+    app_handle: tauri::AppHandle,
+    session: tauri::State<Arc<Mutex<Option<Session>>>>,
+    db_path: tauri::State<Arc<Mutex<String>>>,
+) -> Response {
+    let db_path = db_path.lock().expect("should get db path");
+
+    // log out existing session if there is one
+    if let Some(sess) = session.lock().unwrap().as_mut() {
+        _ = sess.logout();
+    }
+
+    // create a new session and update app state
+    {
+        let new_session = match Session::new(&usrname, passwd, &db_path) {
+            Ok(sess) => sess,
+            Err(e) => return Response::err().body(json!(format!("Error loggin in: {e:?}"))),
+        };
+
+        let mut sess_guard = session.lock().unwrap();
+        *sess_guard = Some(new_session);
+    }
+
+    // spawn a thread to monitor session timeout every 30 secs
+    let session = Arc::clone(&session);
+    let session_timeout = Duration::from_secs(300);
+    thread::spawn(move || {
+        loop {
+            let mut sess_guard = session.lock().unwrap();
+
+            match sess_guard.as_ref() {
+                Some(sess) => {
+                    if sess.last_activity.elapsed() >= session_timeout {
+                        // trigger session timeout action
+                        app_handle
+                            .emit_all("session_timeout", "Logged out due to inactivity")
+                            .unwrap();
+                        *sess_guard = None;
+                        break;
+                    }
+                }
+                None => {
+                    *sess_guard = None;
+                    break;
+                }
+            }
+
+            drop(sess_guard);
+            thread::sleep(Duration::from_secs(30)); // check every 30 secs
+        }
+    });
+
+    Response::ok().body(json!(format!("logged in as {:?}", usrname)))
+}
+
+#[tauri::command]
+fn logout(session: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
+    let mut sess_guard = session.lock().unwrap();
+    match *sess_guard {
+        Some(ref mut sess) => {
+            return match sess.logout() {
+                Ok(()) => {
+                    *sess_guard = None;
+                    Response::ok().body(json!("logged out"))
+                }
+                Err(e) => Response::ok().body(json!(format!("Error logging out: {e:?}"))),
+            };
+        }
+        None => {
+            *sess_guard = None;
+            Response::ok().body(json!("already logged out"))
+        }
     }
 }
 
 #[tauri::command]
-fn logout(state: tauri::State<Arc<Mutex<Session>>>) -> Response {
-    let mut sess = state.lock().expect("should get session");
-    match sess.logout() {
-        Ok(()) => Response::ok().body(json!("logged out")),
-        Err(e) => Response::ok().body(json!(format!("Error logging out: {e:?}"))),
+fn update_last_activity(session: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
+    let mut sess_guard = session.lock().unwrap();
+    match *sess_guard {
+        Some(ref mut sess) => {
+            sess.last_activity = Instant::now();
+            Response::ok().body(json!("Session refreshed"))
+        }
+        None => Response::err().body(json!("No running session")),
     }
 }
 
 fn main() {
-    let db_path = "./test.db";
+    let db_path = Arc::new(Mutex::new("./lockkey.secrets".to_string()));
 
-    let sess = Session::new().connect_to_db(&db_path);
+    let session_state: Arc<Mutex<Option<Session>>> = Arc::new(Mutex::new(None));
 
-    let sess = Arc::new(Mutex::new(sess));
     tauri::Builder::default()
-        .manage(sess)
+        .manage(db_path)
+        .manage(session_state)
         .invoke_handler(tauri::generate_handler![
             get_labels,
             new_secret,
@@ -162,6 +261,7 @@ fn main() {
             login,
             logout,
             new_user,
+            update_last_activity
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

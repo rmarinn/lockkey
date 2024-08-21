@@ -3,7 +3,7 @@
   import { invoke } from "@tauri-apps/api/tauri";
   import type { Response } from "@types";
   import SmallLoader from "../SmallLoader.svelte";
-  import { MsgType, showMsg } from "../../assets/ts/popupMsgStore";
+  import { MsgType, showPopupMsg } from "../../assets/ts/popupMsgStore";
 
   let usrname: string = "";
   let passwd: string = "";
@@ -16,7 +16,7 @@
 
     if (inputIsInvalid) {
       submitting = false;
-      showMsg(MsgType.Error, "Invalid inputs");
+      showPopupMsg(MsgType.Error, "Invalid inputs");
       return;
     }
 
@@ -26,11 +26,12 @@
     });
 
     if (resp.success) {
+      console.log(resp.body);
       goto("/secrets");
       return;
     }
 
-    showMsg(
+    showPopupMsg(
       MsgType.Error,
       resp.body ?? "An error has occured while trying to log in",
     );
