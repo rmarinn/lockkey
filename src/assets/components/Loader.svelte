@@ -20,7 +20,7 @@
 
 <style lang="scss">
   @use "sass:math";
-  @import "../assets/scss/variables";
+  @import "@assets/scss/variables";
 
   $grad-duration: 1s;
   $move-speed: 3.5s;

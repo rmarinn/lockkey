@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onNavigate } from "$app/navigation";
-  import "../assets/scss/styles.scss";
-  import PopupMsgs from "./PopupMsgOverlay.svelte";
-  import SessionHandler from "./SessionHandler.svelte";
-  import Alert from "./AlertOverlay.svelte";
+  import "@assets/scss/styles.scss";
+  import PopupMsgs from "@assets/components/PopupMsgOverlay.svelte";
+  import SessionHandler from "@assets/components/SessionHandler.svelte";
+  import Alert from "@assets/components/AlertOverlay.svelte";
 
   onNavigate((navigation) => {
     // @ts-ignore

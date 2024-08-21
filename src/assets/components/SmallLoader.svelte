@@ -5,7 +5,7 @@
 </div>
 
 <style lang="scss">
-  @import "../assets/scss/variables";
+  @import "@assets/scss/variables";
 
   $width: 0.4rem;
   $height: 0.8rem;

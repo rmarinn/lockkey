@@ -1,10 +1,10 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import type { Response } from "@types";
+  import type { Response } from "@assets/ts/types";
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
-  import Loader from "./Loader.svelte";
+  import Loader from "@assets/components/Loader.svelte";
 
   let isAuthenticated: boolean = false;
 

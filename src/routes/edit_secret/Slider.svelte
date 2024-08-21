@@ -59,8 +59,8 @@
 </div>
 
 <style lang="scss">
-  @import "../../assets/scss/variables";
-  @import "../../assets/scss/utils";
+  @import "@assets/scss/variables";
+  @import "@assets/scss/utils";
 
   .slider {
     display: flex;

@@ -4,8 +4,8 @@
   import { listen } from "@tauri-apps/api/event";
   import type { UnlistenFn } from "@tauri-apps/api/event";
 
-  import { showAlertMsg } from "../assets/ts/alertMsgStore";
-  import { logOut } from "@utils";
+  import { showAlertMsg } from "@assets/ts/alertMsgStore";
+  import { logOut } from "@assets/ts/utils";
 
   let unlisten: UnlistenFn;
 

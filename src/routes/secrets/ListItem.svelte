@@ -5,11 +5,11 @@
   import { createEventDispatcher } from "svelte";
   import { fly, fade } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  import { MsgType, showPopupMsg } from "../../assets/ts/popupMsgStore";
+  import { MsgType, showPopupMsg } from "@assets/ts/popupMsgStore";
 
-  import type { Response, Secret } from "@types";
+  import type { Response, Secret } from "@assets/ts/types";
   import { invoke } from "@tauri-apps/api/tauri";
-  import SmallLoader from "../SmallLoader.svelte";
+  import SmallLoader from "@assets/components/SmallLoader.svelte";
 
   const dispatch = createEventDispatcher();
   export let label: string = "";

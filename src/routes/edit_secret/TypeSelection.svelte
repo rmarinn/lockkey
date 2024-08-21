@@ -39,7 +39,7 @@
 </div>
 
 <style lang="scss">
-  @import "../../assets/scss/variables";
+  @import "@assets/scss/variables";
 
   .radio-input {
     display: none;

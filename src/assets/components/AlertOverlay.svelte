@@ -1,9 +1,9 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import { alertMsg } from "../assets/ts/alertMsgStore";
+  import { alertMsg } from "@assets/ts/alertMsgStore";
   import { fade } from "svelte/transition";
   import { cubicOut, cubicIn } from "svelte/easing";
-  import { clearAlertMsg } from "../assets/ts/alertMsgStore";
+  import { clearAlertMsg } from "@assets/ts/alertMsgStore";
 
   let msg: string | null = null;
   $: alertMsg.subscribe((value) => (msg = value));
@@ -25,7 +25,7 @@
 {/if}
 
 <style lang="scss">
-  @import "../assets/scss/variables";
+  @import "@assets/scss/variables";
 
   .alert {
     position: absolute;

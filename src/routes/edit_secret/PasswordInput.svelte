@@ -285,7 +285,7 @@
 </div>
 
 <style lang="scss">
-  @import "../../assets/scss/variables";
+  @import "@assets/scss/variables";
 
   .card {
     padding: 1.5rem;

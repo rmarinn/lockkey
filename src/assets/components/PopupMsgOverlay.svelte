@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { MsgType, type PopupMsg } from "../assets/ts/popupMsgStore";
-  import { popupMsgs } from "../assets/ts/popupMsgStore";
+  import { MsgType, type PopupMsg } from "@assets/ts/popupMsgStore";
+  import { popupMsgs } from "@assets/ts/popupMsgStore";
   import { fly, fade } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { flip } from "svelte/animate";
@@ -43,7 +43,7 @@
 {/if}
 
 <style lang="scss">
-  @import "../assets/scss/variables";
+  @import "@assets/scss/variables";
 
   .popup-overlay {
     position: absolute;

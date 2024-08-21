@@ -1,14 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { fly, fade } from "svelte/transition";
+  import { fly } from "svelte/transition";
   import { page } from "$app/stores";
-  import type { Response, Secret } from "@types";
+  import type { Response, Secret } from "@assets/ts/types";
   import { invoke } from "@tauri-apps/api/tauri";
   import Icon from "@iconify/svelte";
-  import { logOut } from "@utils";
+  import { logOut } from "@assets/ts/utils";
   import { cubicOut } from "svelte/easing";
-  import Loader from "../Loader.svelte";
+  import Loader from "@assets/components/Loader.svelte";
 
   let label: string | undefined;
   let data: string | undefined;
@@ -71,7 +71,7 @@
 {/if}
 
 <style lang="scss">
-  @import "../../assets/scss/variables";
+  @import "@assets/scss/variables";
 
   .secret {
     background-color: $background;

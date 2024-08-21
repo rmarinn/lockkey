@@ -9,7 +9,7 @@ use std::{
 
 use lockkey::{create_new_account, Session};
 use serde_json::{json, Value};
-use tauri::{api::path::app_data_dir, Manager, PathResolver};
+use tauri::Manager;
 
 #[derive(serde::Serialize)]
 struct Response {
