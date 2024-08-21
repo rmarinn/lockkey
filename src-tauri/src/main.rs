@@ -9,7 +9,7 @@ use std::{
 
 use lockkey::{create_new_account, Session};
 use serde_json::{json, Value};
-use tauri::Manager;
+use tauri::{api::path::app_data_dir, Manager, PathResolver};
 
 #[derive(serde::Serialize)]
 struct Response {
@@ -67,13 +67,13 @@ fn edit_secret(
     label: String,
     new_label: String,
     new_data: String,
-    state: tauri::State<Arc<Mutex<Option<Session>>>>,
+    session: tauri::State<Arc<Mutex<Option<Session>>>>,
 ) -> Response {
-    let sess_guard = state.lock().expect("should get session");
+    let sess_guard = session.lock().unwrap();
 
     match *sess_guard {
         Some(ref session) => match session.edit_secret(&label, &new_label, new_data) {
-            Ok(()) => Response::ok().body(json!("scret edited".to_string())),
+            Ok(()) => Response::ok().body(json!("secret edited".to_string())),
             Err(e) => Response::err().body(json!(format!("Error creating secret: {e:?}"))),
         },
         None => Response::err().body(json!(format!("No running session"))),
@@ -244,11 +244,26 @@ fn update_last_activity(session: tauri::State<Arc<Mutex<Option<Session>>>>) -> R
 }
 
 fn main() {
-    let db_path = Arc::new(Mutex::new("./lockkey.secrets".to_string()));
-
     let session_state: Arc<Mutex<Option<Session>>> = Arc::new(Mutex::new(None));
+    let db_path: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
 
+    let db_path_clone: Arc<Mutex<String>> = Arc::clone(&db_path);
     tauri::Builder::default()
+        .setup(move |app| {
+            let db_path_str = app
+                .path_resolver()
+                .app_data_dir()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+
+            // let db_path = app.state::<Arc<Mutex<String>>>();
+            let mut db_path_lock = db_path_clone.lock().unwrap();
+            *db_path_lock = db_path_str;
+
+            Ok(())
+        })
         .manage(db_path)
         .manage(session_state)
         .invoke_handler(tauri::generate_handler![

@@ -81,7 +81,10 @@
 
     if (resp.success) {
       goto("/secrets");
-      showPopupMsg(MsgType.Success, "Secret created");
+      showPopupMsg(
+        MsgType.Success,
+        `Secret ${isEditingSecret ? "edited" : "created"}`,
+      );
       return;
     } else {
       showPopupMsg(MsgType.Error, resp.body ?? "An unknown error has occured.");
