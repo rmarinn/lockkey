@@ -1,10 +1,10 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import { type Response } from "@assets/ts/types";
-  import SmallLoader from "@assets/components/SmallLoader.svelte";
-  import { MsgType, showPopupMsg } from "@assets/ts/popupMsgStore";
-  import { userPrefs } from "@assets/ts/userPrefs";
+  import { type Response } from "@ts/types";
+  import SmallLoader from "@components/SmallLoader.svelte";
+  import { MsgType, showPopupMsg } from "@ts/popupMsgStore";
+  import { userPrefs } from "@ts/userPrefs";
 
   let usrname: string = "";
   let passwd: string = "";

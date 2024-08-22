@@ -1,17 +1,17 @@
 <script lang="ts">
-  import { logOut } from "@assets/ts/utils";
+  import { logOut } from "@ts/utils";
   import Icon from "@iconify/svelte";
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import type { Response, Secret } from "@assets/ts/types";
+  import type { Response, Secret } from "@ts/types";
   import PasswordInput from "./PasswordInput.svelte";
   import TypeSelection from "./TypeSelection.svelte";
   import TextInput from "./TextInput.svelte";
   import { page } from "$app/stores";
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
-  import { MsgType, showPopupMsg } from "@assets/ts/popupMsgStore";
-  import Loader from "@assets/components/Loader.svelte";
+  import { MsgType, showPopupMsg } from "@ts/popupMsgStore";
+  import Loader from "@components/Loader.svelte";
 
   const MIN_LABEL_LEN = 3;
   const MAX_LABEL_LEN = 32;

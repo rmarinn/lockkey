@@ -4,7 +4,7 @@
   import { cubicIn, cubicOut } from "svelte/easing";
   import CheckBox from "./CheckBox.svelte";
   import Slider from "./Slider.svelte";
-  import { userPrefs } from "@assets/ts/userPrefs";
+  import { userPrefs } from "@ts/userPrefs";
   import { onMount, onDestroy } from "svelte";
 
   $: passwdPrefs = $userPrefs.passwdGen;

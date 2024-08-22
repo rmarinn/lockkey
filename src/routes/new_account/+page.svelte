@@ -1,9 +1,9 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
-  import type { Response } from "@assets/ts/types";
-  import { MsgType, showPopupMsg } from "@assets/ts/popupMsgStore";
-  import SmallLoader from "@assets/components/SmallLoader.svelte";
+  import type { Response } from "@ts/types";
+  import { MsgType, showPopupMsg } from "@ts/popupMsgStore";
+  import SmallLoader from "@components/SmallLoader.svelte";
   import { slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
 

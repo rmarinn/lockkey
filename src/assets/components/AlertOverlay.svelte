@@ -1,9 +1,9 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
-  import { alertMsg } from "@assets/ts/alertMsgStore";
+  import { alertMsg } from "@ts/alertMsgStore";
   import { fade } from "svelte/transition";
   import { cubicOut, cubicIn } from "svelte/easing";
-  import { clearAlertMsg } from "@assets/ts/alertMsgStore";
+  import { clearAlertMsg } from "@ts/alertMsgStore";
 </script>
 
 {#if $alertMsg !== null}

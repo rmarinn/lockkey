@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { MsgType } from "@assets/ts/popupMsgStore";
-  import { popupMsgs } from "@assets/ts/popupMsgStore";
+  import { MsgType, popupMsgs } from "@ts/popupMsgStore";
   import { fly, fade } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { flip } from "svelte/animate";

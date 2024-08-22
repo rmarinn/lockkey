@@ -1,7 +1,7 @@
 {
   "build": {
-    "beforeDevCommand": "pnpm run dev",
-    "beforeBuildCommand": "pnpm run build",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build",
     "devPath": "http://localhost:1420",
     "distDir": "../build"
   },
@@ -15,15 +15,6 @@
       "shell": {
         "all": false,
         "open": true
-      },
-      "fs": {
-        "all": false,
-        "readFile": true,
-        "writeFile": true,
-        "scope": ["**"]
-      },
-      "path": {
-        "all": true
       }
     },
     "windows": [
@@ -34,7 +25,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self';"
+      "csp": null
     },
     "bundle": {
       "active": true,

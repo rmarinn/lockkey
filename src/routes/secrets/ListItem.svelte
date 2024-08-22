@@ -5,11 +5,11 @@
   import { createEventDispatcher } from "svelte";
   import { fly, fade } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
-  import { MsgType, showPopupMsg } from "@assets/ts/popupMsgStore";
+  import { MsgType, showPopupMsg } from "@ts/popupMsgStore";
 
-  import type { Response, Secret } from "@assets/ts/types";
+  import type { Response, Secret } from "@ts/types";
   import { invoke } from "@tauri-apps/api/tauri";
-  import SmallLoader from "@assets/components/SmallLoader.svelte";
+  import SmallLoader from "@components/SmallLoader.svelte";
 
   const dispatch = createEventDispatcher();
   export let label: string = "";
@@ -146,8 +146,7 @@
 </div>
 
 <style lang="scss">
-  $primary: #1d4a81;
-  $secondary: #3e89e5;
+  @import "@assets/scss/variables";
 
   .list-item {
     padding: 32px;

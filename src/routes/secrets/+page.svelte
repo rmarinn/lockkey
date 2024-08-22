@@ -7,8 +7,8 @@
   import { fade } from "svelte/transition";
   import { flip } from "svelte/animate";
 
-  import type { Response } from "@assets/ts/types";
-  import { logOut } from "@assets/ts/utils";
+  import type { Response } from "@ts/types";
+  import { logOut } from "@ts/utils";
   import ListItem from "./ListItem.svelte";
   import FilterButton from "./FilterButton.svelte";
 
