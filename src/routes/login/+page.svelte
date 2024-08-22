@@ -4,6 +4,7 @@
   import { type Response } from "@assets/ts/types";
   import SmallLoader from "@assets/components/SmallLoader.svelte";
   import { MsgType, showPopupMsg } from "@assets/ts/popupMsgStore";
+  import { userPrefs } from "@assets/ts/userPrefs";
 
   let usrname: string = "";
   let passwd: string = "";
@@ -28,6 +29,7 @@
     if (resp.success) {
       console.log(resp.body);
       goto("/secrets");
+      userPrefs.load(usrname);
       return;
     }
 

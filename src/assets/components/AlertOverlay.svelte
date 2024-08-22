@@ -4,12 +4,9 @@
   import { fade } from "svelte/transition";
   import { cubicOut, cubicIn } from "svelte/easing";
   import { clearAlertMsg } from "@assets/ts/alertMsgStore";
-
-  let msg: string | null = null;
-  $: alertMsg.subscribe((value) => (msg = value));
 </script>
 
-{#if msg !== null}
+{#if $alertMsg !== null}
   <div
     class="alert"
     in:fade={{ duration: 300, easing: cubicOut }}
@@ -19,7 +16,7 @@
       <button on:click={clearAlertMsg}
         ><Icon icon="mdi:close" width="2rem" height="2rem" /></button
       >
-      {msg}
+      {$alertMsg}
     </div>
   </div>
 {/if}

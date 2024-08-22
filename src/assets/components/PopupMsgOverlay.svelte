@@ -1,12 +1,9 @@
 <script lang="ts">
-  import { MsgType, type PopupMsg } from "@assets/ts/popupMsgStore";
+  import { MsgType } from "@assets/ts/popupMsgStore";
   import { popupMsgs } from "@assets/ts/popupMsgStore";
   import { fly, fade } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { flip } from "svelte/animate";
-
-  let msgs: PopupMsg[] = [];
-  $: popupMsgs.subscribe((value) => (msgs = value));
 
   function getMsgClass(msgType: MsgType) {
     let msgClass: string = "popup-msg";
@@ -27,9 +24,9 @@
   }
 </script>
 
-{#if msgs.length > 0}
+{#if $popupMsgs.length > 0}
   <div class="popup-overlay">
-    {#each msgs as msg (msg.id)}
+    {#each $popupMsgs as msg (msg.id)}
       <div
         class={getMsgClass(msg.type)}
         in:fly|global={{ y: 50, duration: 300, easing: cubicOut }}

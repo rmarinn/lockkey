@@ -1,5 +1,6 @@
 import { goto } from "$app/navigation";
 import { invoke } from "@tauri-apps/api/tauri";
+import { userPrefs } from "./userPrefs";
 
 export function adjustTextAreaHeight(textArea: HTMLTextAreaElement) {
   if (textArea === null) return;
@@ -11,5 +12,6 @@ export function adjustTextAreaHeight(textArea: HTMLTextAreaElement) {
 export async function logOut() {
   if (await invoke<boolean>("logout")) {
     goto("/login");
+    userPrefs.reset();
   }
 }

@@ -25,10 +25,11 @@ let msgs: PopupMsg[] = [];
 
 export const popupMsgs = writable<PopupMsg[]>([]);
 
-export async function showPopupMsg(type: MsgType, msg: string, duration: number = 1500) {
+export async function showPopupMsg(type: MsgType, msg: string, duration: number = 3000) {
 	msgs.push(new PopupMsg(type, msg));
 
 	popupMsgs.set(msgs);
+	console.log(msg);
 
 	setTimeout(() => {
 		msgs = msgs.filter(m => m.msg !== msg);

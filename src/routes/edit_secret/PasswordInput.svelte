@@ -4,6 +4,18 @@
   import { cubicIn, cubicOut } from "svelte/easing";
   import CheckBox from "./CheckBox.svelte";
   import Slider from "./Slider.svelte";
+  import { userPrefs } from "@assets/ts/userPrefs";
+  import { onMount, onDestroy } from "svelte";
+
+  $: passwdPrefs = $userPrefs.passwdGen;
+
+  onMount(() => {
+    excludedCharsInput = passwdPrefs.excludedChars;
+  });
+
+  onDestroy(() => {
+    $userPrefs.save();
+  });
 
   export let minLblLen = 3;
   export let maxLblLen = 32;
@@ -27,24 +39,6 @@
     passwdInput.type = showPasswd ? "text" : "password";
   }
 
-  interface PasswordConfig {
-    length: number;
-    useLetters: boolean;
-    useUppercase: boolean;
-    useNumbers: boolean;
-    useSymbols: boolean;
-    excludedChars: string;
-  }
-
-  export let passwdCfg: PasswordConfig = {
-    length: 12,
-    useLetters: true,
-    useUppercase: true,
-    useNumbers: true,
-    useSymbols: true,
-    excludedChars: "",
-  };
-
   function shuffleString(str: string): string {
     const array = str.split("");
     for (let i = array.length - 1; i > 0; i--) {
@@ -61,13 +55,13 @@
     const symbols = "!@#$%^&*()-_=+[]{}|;:'\",.<>?/\\~`";
 
     let charSet = "";
-    if (passwdCfg.useLetters) charSet += lowercaseLetters;
-    if (passwdCfg.useUppercase) charSet += uppercaseLetters;
-    if (passwdCfg.useNumbers) charSet += numbers;
-    if (passwdCfg.useSymbols) charSet += symbols;
+    if (passwdPrefs.useLetters) charSet += lowercaseLetters;
+    if (passwdPrefs.useUppercase) charSet += uppercaseLetters;
+    if (passwdPrefs.useNumbers) charSet += numbers;
+    if (passwdPrefs.useSymbols) charSet += symbols;
     if (charSet === "") return "";
 
-    const excludedChars = new Set(passwdCfg.excludedChars);
+    const excludedChars = new Set(passwdPrefs.excludedChars);
     charSet = charSet
       .split("")
       .filter((char) => !excludedChars.has(char))
@@ -76,7 +70,7 @@
 
     let passwd = "";
 
-    for (let i = 0; i < passwdCfg.length; i++) {
+    for (let i = 0; i < passwdPrefs.passwdLength; i++) {
       passwd += charSet[Math.floor(Math.random() * charSet.length)];
     }
 
@@ -86,7 +80,7 @@
   function processExcludedChars() {
     let filtered: Set<string> = new Set(excludedCharsInput);
     excludedCharsInput = Array.from(filtered).join("");
-    passwdCfg.excludedChars = excludedCharsInput;
+    passwdPrefs.excludedChars = excludedCharsInput;
   }
 
   async function copyToClipboard() {
@@ -242,7 +236,7 @@
         <Slider
           min={minPasswdLen}
           max={maxPasswdLen}
-          bind:value={passwdCfg.length}
+          bind:value={passwdPrefs.passwdLength}
           ariaLabel="Password length slider"
         />
       </div>
@@ -250,19 +244,19 @@
         <div class="italic">toggle</div>
         <div class="flex-grow flex justify-end gap-2">
           <CheckBox
-            bind:checked={passwdCfg.useLetters}
+            bind:checked={passwdPrefs.useLetters}
             ariaLabel="Toggle letters">letters</CheckBox
           >
           <CheckBox
-            bind:checked={passwdCfg.useNumbers}
+            bind:checked={passwdPrefs.useNumbers}
             ariaLabel="Toggle numbers">numbers</CheckBox
           >
           <CheckBox
-            bind:checked={passwdCfg.useSymbols}
+            bind:checked={passwdPrefs.useSymbols}
             ariaLabel="Toggle symbols">symbols</CheckBox
           >
           <CheckBox
-            bind:checked={passwdCfg.useUppercase}
+            bind:checked={passwdPrefs.useUppercase}
             ariaLabel="Toggle uppercase">uppercase</CheckBox
           >
         </div>

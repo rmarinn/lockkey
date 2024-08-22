@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
+    fs,
     sync::{Arc, Mutex},
     thread,
     time::{Duration, Instant},
@@ -250,15 +251,15 @@ fn main() {
     let db_path_clone: Arc<Mutex<String>> = Arc::clone(&db_path);
     tauri::Builder::default()
         .setup(move |app| {
-            let db_path_str = app
+            let mut db_pathbuf = app
                 .path_resolver()
                 .app_data_dir()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_string();
+                .expect("should get app directory");
+            fs::create_dir_all(&db_pathbuf).expect("should create app directory");
 
-            // let db_path = app.state::<Arc<Mutex<String>>>();
+            db_pathbuf.push("lockkey.secrets");
+            let db_path_str = db_pathbuf.to_str().unwrap().to_string();
+
             let mut db_path_lock = db_path_clone.lock().unwrap();
             *db_path_lock = db_path_str;
 
