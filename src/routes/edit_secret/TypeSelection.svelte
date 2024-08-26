@@ -44,10 +44,6 @@
   .radio-input {
     display: none;
 
-    .radio-label {
-      color: $text-light;
-    }
-
     &:checked ~ .radio-label {
       color: $text-light;
       background-color: $primary;

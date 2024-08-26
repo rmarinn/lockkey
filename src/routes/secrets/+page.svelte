@@ -1,16 +1,15 @@
 <script lang="ts">
   import Icon from "@iconify/svelte";
 
-  import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
   import { flip } from "svelte/animate";
 
   import type { Response } from "@ts/types";
-  import { logOut } from "@ts/utils";
   import ListItem from "./ListItem.svelte";
   import FilterButton from "./FilterButton.svelte";
+  import Navbar from "@components/Navbar.svelte";
 
   interface Secret {
     label: string;
@@ -49,19 +48,7 @@
   });
 </script>
 
-<aside>
-  <button
-    class="nav-btn"
-    on:click={() => goto("/edit_secret")}
-    aria-label="Create a new secret"
-    ><Icon icon="mdi:plus-circle-outline" width="2rem" height="2rem" /></button
-  >
-  <div class="flex-grow flex items-end">
-    <button class="nav-btn" on:click={logOut} aria-label="Log out"
-      ><Icon icon="mdi:logout-variant" width="2rem" height="2rem" /></button
-    >
-  </div>
-</aside>
+<Navbar />
 
 <main
   class="flex flex-col flex-grow gap-[24px] items-center ml-[4rem] p-8 content"

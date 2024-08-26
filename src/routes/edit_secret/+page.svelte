@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { logOut } from "@ts/utils";
   import Icon from "@iconify/svelte";
   import { goto } from "$app/navigation";
   import { invoke } from "@tauri-apps/api/tauri";
@@ -12,6 +11,7 @@
   import { fly } from "svelte/transition";
   import { MsgType, showPopupMsg } from "@ts/popupMsgStore";
   import Loader from "@components/Loader.svelte";
+  import Navbar from "@components/Navbar.svelte";
 
   const MIN_LABEL_LEN = 3;
   const MAX_LABEL_LEN = 32;
@@ -127,16 +127,7 @@
   });
 </script>
 
-<aside>
-  <button class="nav-btn" on:click={() => goto("/secrets")}
-    ><Icon icon="mdi:arrow-back" width="2rem" height="2rem" /></button
-  >
-  <div class="flex-grow flex items-end">
-    <button class="nav-btn" on:click={logOut} aria-label="Log out"
-      ><Icon icon="mdi:logout-variant" width="2rem" height="2rem" /></button
-    >
-  </div>
-</aside>
+<Navbar backBtn={true} newSecretBtn={false} />
 
 {#if isFetchingData}
   <div
@@ -148,7 +139,7 @@
   <div
     class="flex flex-col flex-grow p-8 ml-[4rem] gap-4 content-center content"
   >
-    <div class="flex justify-between items-center gap-[24px]">
+    <div class="flex justify-center items-center gap-48">
       {#if isEditingSecret}
         <h1 class="text-xl">Edit Secret</h1>
       {:else}

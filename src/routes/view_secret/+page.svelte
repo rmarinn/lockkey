@@ -74,7 +74,7 @@
 
   .secret {
     background-color: $background;
-    color: $text-light;
+    color: $text-dark;
     box-shadow: inset 1px 1px 4px 2px rgba($primary, 0.2);
     border-radius: 0.5rem;
     padding: 1rem;
