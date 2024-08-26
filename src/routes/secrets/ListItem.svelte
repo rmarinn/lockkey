@@ -88,7 +88,7 @@
 </script>
 
 <div
-  class="list-item"
+  class="list-item lg:w-[600px] w-full"
   in:fly|global={{ y: 300, duration: 300, easing: cubicOut }}
   out:fade={{ duration: 300, easing: cubicOut }}
 >
@@ -151,7 +151,6 @@
   .list-item {
     padding: 32px;
     display: flex;
-    min-width: 600px;
     justify-content: space-between;
     align-items: center;
     flex-direction: row;

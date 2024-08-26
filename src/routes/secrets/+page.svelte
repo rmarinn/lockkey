@@ -93,7 +93,7 @@
     </div>
   {:else}
     {#each filteredSecrets as secret (secret.label)}
-      <div animate:flip={{ duration: 300 }}>
+      <div animate:flip={{ duration: 300 }} class="w-full flex justify-center">
         <ListItem
           label={secret.label}
           kind={secret.kind}

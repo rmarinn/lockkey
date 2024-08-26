@@ -139,7 +139,7 @@
   <div
     class="flex flex-col flex-grow p-8 ml-[4rem] gap-4 content-center content"
   >
-    <div class="flex justify-center items-center gap-48">
+    <div class="flex justify-between items-center lg:gap-48 lg:justify-center">
       {#if isEditingSecret}
         <h1 class="text-xl">Edit Secret</h1>
       {:else}
