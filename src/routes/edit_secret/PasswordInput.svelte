@@ -6,6 +6,7 @@
   import Slider from "./Slider.svelte";
   import { userPrefs } from "@ts/userPrefs";
   import { onMount, onDestroy } from "svelte";
+  import { MsgType, showPopupMsg } from "@ts/popupMsgStore";
 
   $: passwdPrefs = $userPrefs.passwdGen;
 
@@ -87,10 +88,10 @@
     navigator.clipboard
       .writeText(passwd)
       .then(() => {
-        console.log("Text copied to clipboard");
+        showPopupMsg(MsgType.Success, "Text copied to clipboard");
       })
       .catch((err) => {
-        console.log("Failed to copy text: ", err);
+        showPopupMsg(MsgType.Success, `Failed to copy text: ${err}`);
       });
   }
 </script>
@@ -145,16 +146,15 @@
     </div>
 
     <div class="relative mx-auto">
-      <button
-        class="passwd-vis-toggle"
-        on:click|preventDefault={togglePasswdVisibility}
-      >
-        {#if showPasswd}
-          <Icon icon="mdi:eye-outline" />
-        {:else}
-          <Icon icon="mdi:eye-off-outline" />
-        {/if}
-      </button>
+      <div class="passwd-vis-toggle">
+        <button on:click|preventDefault={togglePasswdVisibility}>
+          {#if showPasswd}
+            <Icon icon="mdi:eye-outline" />
+          {:else}
+            <Icon icon="mdi:eye-off-outline" />
+          {/if}
+        </button>
+      </div>
 
       <div class="flex flex-col gap-2 w-[250px] text-nowrap overflow-visible">
         <input
@@ -297,14 +297,22 @@
   .passwd-vis-toggle {
     position: absolute;
     left: -2rem;
-    top: 1.25rem;
+    top: 1.5rem;
     transform: translateY(-50%);
+
+    button {
+      transition: transform 0.3s ease-out;
+
+      &:hover {
+        transform: translateY(-1px);
+      }
+    }
   }
 
   .passwd-opts {
     position: absolute;
     right: -1rem;
-    top: 50%;
+    top: 1.25rem;
     transform: translateY(-50%) translateX(100%);
 
     display: flex;

@@ -22,7 +22,7 @@
   .loader {
     width: $width;
     height: $height;
-    background-color: $text-light;
+    background-color: $secondary;
     border-radius: 0.2rem;
     position: absolute;
     top: 50%;
@@ -47,7 +47,7 @@
   @keyframes movement {
     from {
       height: calc($height/2);
-      background-color: $text-light;
+      background-color: $primary;
     }
 
     50% {
@@ -57,7 +57,7 @@
 
     to {
       height: calc($height/2);
-      background-color: $text-light;
+      background-color: $primary;
     }
   }
 </style>

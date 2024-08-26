@@ -13,6 +13,7 @@
   @import "@assets/scss/variables";
 
   button {
+    color: $text-light;
     border: solid 0.125rem $primary;
     padding: 0.5rem;
     border-radius: 4rem;
