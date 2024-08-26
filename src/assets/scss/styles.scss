@@ -21,7 +21,7 @@
 /* hide password reveals */
 input[type="password"] {
   -webkit-text-security: disc;
-  apperance: none;
+  appearance: none;
   caret-color: transparent;
   &::-ms-reveal {
     display: none;
