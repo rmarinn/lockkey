@@ -1,6 +1,6 @@
 [package]
 name = "lockkey"
-version = "0.0.0"
+version = "0.1.1"
 description = "Lockkey is a secrets manager app"
 authors = ["Richard Marin"]
 edition = "2021"
