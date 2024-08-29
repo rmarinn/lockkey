@@ -43,15 +43,24 @@
     }
   }
 
+  interface GetSecretResponse {
+    data: string;
+    kind: string;
+    label: string;
+  }
+
   async function copyToClipboard() {
     let data: string | undefined = secretData;
     if (data === undefined || data === "") {
       // fetch data from the backend
-      let resp = await invoke<Response<string | undefined>>("get_secret", {
-        label: label,
-      });
+      let resp = await invoke<Response<GetSecretResponse | undefined>>(
+        "get_secret",
+        {
+          label: label,
+        },
+      );
 
-      data = resp.body;
+      data = resp.body?.data;
     }
 
     if (data !== undefined) {

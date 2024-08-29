@@ -27,7 +27,6 @@
     });
 
     if (resp.success) {
-      console.log(resp.body);
       goto("/secrets");
       userPrefs.load(usrname);
       return;
