@@ -34,4 +34,4 @@ the build should be in `/src-tauri/target/release`
 
 # License
 
-Lockkey Licensed under the [MIT License](https://github.com/rmarinn/lockkey/blob/main/LICENSE)
+Lockkey Licensed under the [MIT License](./LICENSE)
