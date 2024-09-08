@@ -12,6 +12,7 @@ use lockkey::{create_new_account, Session};
 use serde_json::{json, Value};
 use tauri::Manager;
 
+/// Represents a generic response structure for Tauri commands.
 #[derive(serde::Serialize)]
 struct Response {
     success: bool,
@@ -19,6 +20,7 @@ struct Response {
 }
 
 impl Response {
+    /// Constructs a successful response without a body.
     pub fn ok() -> Self {
         Response {
             success: true,
@@ -26,6 +28,7 @@ impl Response {
         }
     }
 
+    /// Constructs an error response without a body.
     pub fn err() -> Self {
         Response {
             success: false,
@@ -33,18 +36,33 @@ impl Response {
         }
     }
 
+    /// Attaches a JSON body to the response.
+    ///
+    /// # Arguments
+    /// * `body` - A `serde_json::Value` that will be attached as the body of the response.
     pub fn body(mut self, body: Value) -> Self {
         self.body = Some(body);
         self
     }
 }
 
+/// Represents a secret label with its kind.
 #[derive(serde::Serialize)]
 struct Label {
     label: String,
     kind: String,
 }
 
+/// Command to store a new secret.
+///
+/// # Arguments
+/// * `kind` - The type of secret (e.g., password, text).
+/// * `label` - The label for the secret.
+/// * `data` - The secret data to store.
+/// * `state` - A shared state containing the current session.
+///
+/// # Returns
+/// A `Response` indicating success or failure.
 #[tauri::command]
 fn new_secret(
     kind: String,
@@ -63,6 +81,16 @@ fn new_secret(
     }
 }
 
+/// Command to edit an existing secret.
+///
+/// # Arguments
+/// * `label` - The label of the secret to edit.
+/// * `new_label` - The new label for the secret.
+/// * `new_data` - The new data for the secret.
+/// * `session` - A shared state containing the current session.
+///
+/// # Returns
+/// A `Response` indicating success or failure.
 #[tauri::command]
 fn edit_secret(
     label: String,
@@ -81,6 +109,14 @@ fn edit_secret(
     }
 }
 
+/// Command to delete a secret.
+///
+/// # Arguments
+/// * `label` - The label of the secret to delete.
+/// * `state` - A shared state containing the current session.
+///
+/// # Returns
+/// A `Response` indicating success or failure.
 #[tauri::command]
 fn delete_secret(label: String, state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
     let sess_guard = state.lock().expect("should get session");
@@ -94,6 +130,13 @@ fn delete_secret(label: String, state: tauri::State<Arc<Mutex<Option<Session>>>>
     }
 }
 
+/// Command to retrieve all secret labels.
+///
+/// # Arguments
+/// * `state` - A shared state containing the current session.
+///
+/// # Returns
+/// A `Response` with the list of secret labels, or an error.
 #[tauri::command]
 fn get_labels(state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
     let sess_guard = state.lock().expect("should get session");
@@ -116,6 +159,14 @@ fn get_labels(state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
     }
 }
 
+/// Command to retrieve a secret by its label.
+///
+/// # Arguments
+/// * `label` - The label of the secret to retrieve.
+/// * `state` - A shared state containing the current session.
+///
+/// # Returns
+/// A `Response` with the secret data, or an error if the secret does not exist.
 #[tauri::command]
 fn get_secret(label: String, state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
     let sess_guard = state.lock().expect("should get session");
@@ -132,6 +183,13 @@ fn get_secret(label: String, state: tauri::State<Arc<Mutex<Option<Session>>>>) -
     }
 }
 
+/// Command to check if a user is authenticated.
+///
+/// # Arguments
+/// * `state` - A shared state containing the current session.
+///
+/// # Returns
+/// A `Response` indicating whether the user is authenticated or not.
 #[tauri::command]
 fn is_authenticated(state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Response {
     let sess_guard = state.lock().expect("should get managed session state");
@@ -141,6 +199,15 @@ fn is_authenticated(state: tauri::State<Arc<Mutex<Option<Session>>>>) -> Respons
     }
 }
 
+/// Command to create a new user.
+///
+/// # Arguments
+/// * `usrname` - The username of the new user.
+/// * `passwd` - The password for the new user.
+/// * `db_path` - A shared state containing the database path.
+///
+/// # Returns
+/// A `Response` indicating success or failure of user creation.
 #[tauri::command]
 fn new_user(
     usrname: String,
@@ -154,6 +221,17 @@ fn new_user(
     }
 }
 
+/// Command to log in a user.
+///
+/// # Arguments
+/// * `usrname` - The username for login.
+/// * `passwd` - The password for login.
+/// * `app_handle` - A handle to the Tauri application.
+/// * `session` - A shared state containing the current session.
+/// * `db_path` - A shared state containing the database path.
+///
+/// # Returns
+/// A `Response` indicating success or failure of login.
 #[tauri::command]
 fn login(
     usrname: String,

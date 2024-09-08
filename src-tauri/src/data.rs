@@ -2,21 +2,33 @@ use anyhow::{anyhow, Result};
 
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
+/// Struct representing a connection to the SQLite database.
 pub struct DbConn {
     conn: Option<Connection>,
 }
 
+/// Struct used for retrieving labels from the database.
 pub struct RetrieveLabelsQueryResult {
     pub kind: String,
     pub label: String,
 }
 
+/// Enum representing the kind of secret (either password or text).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind {
     Password,
     Text,
 }
 
+/// Converts a string to a `Kind` enum.
+///
+/// # Arguments
+///
+/// * `input` - A string slice that holds the kind value.
+///
+/// # Errors
+///
+/// Returns an error if the input does not match a valid kind.
 impl Kind {
     pub fn from_str(input: &str) -> Result<Kind> {
         match input {
@@ -26,6 +38,11 @@ impl Kind {
         }
     }
 
+    /// Converts the `Kind` enum to a string.
+    ///
+    /// # Returns
+    ///
+    /// A string representation of the `Kind`.
     pub fn to_str(self) -> String {
         match self {
             Kind::Password => String::from("password"),
@@ -35,6 +52,15 @@ impl Kind {
 }
 
 impl DbConn {
+    /// Creates a new database connection and initializes the required tables.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A string slice that holds the path to the SQLite database file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the connection cannot be established or table creation fails.
     pub fn new(path: &str) -> Result<DbConn> {
         let mut conn = DbConn {
             conn: Some(Connection::open(path)?),
@@ -43,6 +69,11 @@ impl DbConn {
         Ok(conn)
     }
 
+    /// Returns a reference to the active SQLite connection.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if no connection is available.
     fn get_conn(&self) -> Result<&Connection> {
         match &self.conn {
             Some(conn) => Ok(conn),
@@ -50,6 +81,11 @@ impl DbConn {
         }
     }
 
+    /// Starts a new transaction in the current SQLite connection.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the transaction cannot be started or the connection is unavailable.
     fn start_transaction(&mut self) -> Result<Transaction> {
         match &mut self.conn {
             Some(conn) => Ok(conn.transaction()?),
@@ -57,6 +93,11 @@ impl DbConn {
         }
     }
 
+    /// Creates the required tables (`users` and `secrets`) in the database if they do not already exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the table creation queries fail.
     fn create_table(&mut self) -> Result<()> {
         let conn = self.start_transaction()?;
 
@@ -89,6 +130,15 @@ impl DbConn {
         Ok(())
     }
 
+    /// Checks if a user with the given username already exists in the database.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - A string slice representing the username to check.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
     fn check_user_already_exists(&self, username: &str) -> Result<bool> {
         let conn = self.get_conn()?;
 
@@ -98,6 +148,17 @@ impl DbConn {
         Ok(count > 0)
     }
 
+    /// Creates a new user in the database with the provided username, password hash, and encryption salt.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - A string slice representing the username.
+    /// * `passwd_hash` - A string slice representing the password hash.
+    /// * `enc_salt` - A byte slice representing the encryption salt.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the user already exists or if the query fails.
     pub fn create_user(&self, username: &str, passwd_hash: &str, enc_salt: &[u8]) -> Result<()> {
         let conn = self.get_conn()?;
 
@@ -113,6 +174,15 @@ impl DbConn {
         Ok(())
     }
 
+    /// Retrieves the user ID associated with the given username.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - A string slice representing the username.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
     pub fn get_user_id(&self, username: &str) -> Result<Option<i64>> {
         let conn = self.get_conn()?;
 
@@ -122,6 +192,15 @@ impl DbConn {
         Ok(user_id)
     }
 
+    /// Retrieves the username associated with the given user ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - A reference to the user ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
     pub fn get_username(&self, user_id: &i64) -> Result<Option<String>> {
         let conn = self.get_conn()?;
 
@@ -131,6 +210,15 @@ impl DbConn {
         Ok(user_id)
     }
 
+    /// Retrieves the password hash associated with the given username.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - A string slice representing the username.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
     pub fn get_user_passwd_hash(&self, username: &str) -> Result<Option<String>> {
         let conn = self.get_conn()?;
 
@@ -141,6 +229,15 @@ impl DbConn {
         Ok(db_passwd_hash)
     }
 
+    /// Retrieves the encryption salt associated with the given username.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - A string slice representing the username.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
     pub fn get_user_enc_salt(&self, username: &str) -> Result<Option<Vec<u8>>> {
         let conn = self.get_conn()?;
 
@@ -157,6 +254,15 @@ impl DbConn {
         Ok(())
     }
 
+    /// Deletes a user from the database based on the given username.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - A string slice representing the username.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the deletion fails.
     fn check_if_secret_label_exists(&self, user_id: i64, label: &str) -> Result<bool> {
         let conn = self.get_conn()?;
 
@@ -167,6 +273,16 @@ impl DbConn {
         Ok(count > 0)
     }
 
+    /// Checks if a secret with the given label already exists for the specified user.
+    ///
+    /// # Arguments
+    ///
+    /// * `user_id` - The user ID.
+    /// * `label` - A string slice representing the label of the secret.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails.
     pub fn store_secret(&self, user_id: i64, kind: Kind, label: &str, data: Vec<u8>) -> Result<()> {
         let conn = self.get_conn()?;
 
