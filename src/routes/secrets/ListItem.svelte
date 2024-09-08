@@ -6,6 +6,7 @@
   import { fly, fade } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { MsgType, showPopupMsg } from "@ts/popupMsgStore";
+  import { clipboard } from "@tauri-apps/api";
 
   import type { Response, Secret } from "@ts/types";
   import { invoke } from "@tauri-apps/api/tauri";
@@ -14,9 +15,9 @@
   const dispatch = createEventDispatcher();
   export let label: string = "";
   export let kind: string = "password";
-  let secretData: string | undefined;
+  let secretData: string = "";
 
-  $: isPasswdVisible = secretData !== undefined;
+  $: isPasswdVisible = secretData !== "";
 
   async function viewSecret() {
     if (kind === "text") {
@@ -25,8 +26,7 @@
     }
 
     if (isPasswdVisible) {
-      // TODO: make sure data here is actually cleared in memory
-      secretData = undefined;
+      secretData = "";
     } else {
       // show loading
       secretData = "decrypting password...";
@@ -64,7 +64,7 @@
     }
 
     if (data !== undefined) {
-      navigator.clipboard
+      clipboard
         .writeText(data)
         .then(() => {
           showPopupMsg(MsgType.Success, "Text copied to clipboard");
@@ -74,8 +74,7 @@
         });
     }
 
-    // TODO: make sure data is zeroed out in the memory
-    data = undefined;
+    data = "";
   }
 
   async function deleteSecret() {

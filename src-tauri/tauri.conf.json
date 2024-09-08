@@ -12,9 +12,9 @@
   "tauri": {
     "allowlist": {
       "all": false,
-      "shell": {
+      "clipboard": {
         "all": false,
-        "open": true
+        "writeText": true
       }
     },
     "windows": [
